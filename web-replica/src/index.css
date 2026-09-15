@@ -1,0 +1,53 @@
+:root {
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  --color-primary: #064E3B;
+  --color-primary-light: #0A664E;
+  --color-canvas: #FAF6EE;
+  --color-canvas-elevated: #FDFBF7;
+  --color-canvas-warm: #F5EFE0;
+  --color-card-accent: #F8E7C9;
+  --color-card-border: #EEDCC0;
+  --color-text-primary: #0F1F1A;
+  --color-text-secondary: #4B5563;
+  --color-text-tertiary: #7D8882;
+  --color-success: #10B981;
+  --color-danger: #B91C1C;
+  --color-warning: #D97706;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-serif {
+  font-family: var(--font-serif);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas-warm);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-card-border);
+  border-radius: 3px;
+}

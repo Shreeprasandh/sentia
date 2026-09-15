@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Sentia",
+    "slug": "sentia-bag",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/brand/logo.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/brand/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF6EE"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sentia.smartliving",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Sentia connects to your smart bag via Bluetooth to monitor battery, sensors, and departures.",
+        "NSLocationWhenInUseUsageDescription": "Sentia tracks your bag location to prevent leaving it behind.",
+        "NSFaceIDUsageDescription": "Use Face ID to secure your Sentia profile and hardware locks."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/logo.png",
+        "backgroundColor": "#FAF6EE"
+      },
+      "package": "com.sentia.smartliving",
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/brand/logo.png",
+      "bundler": "metro"
+    }
+  }
+}
