@@ -4,10 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Volume2,
@@ -26,8 +27,15 @@ interface BagRadarScreenProps {
 }
 
 export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
+  const insets = useSafeAreaInsets();
   const [isBeaconActive, setIsBeaconActive] = useState(false);
   const [geofenceArmed, setGeofenceArmed] = useState(true);
+
+  // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 20
+  ) + 8;
 
   const handleTriggerBeacon = async () => {
     try {
@@ -50,11 +58,11 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} translucent={true} />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header with Dynamic Safe Area Clearance */}
+      <View style={[styles.header, { paddingTop: topInset }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <ArrowLeft size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -160,12 +168,12 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
           </View>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: Colors.canvas,
   },
@@ -174,7 +182,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardAccentBorder,
   },
@@ -333,8 +341,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardAccentBorder,
     paddingVertical: 14,
     borderRadius: BorderRadius.pill,
+    overflow: 'hidden',
     marginBottom: Spacing.md,
-    ...Shadows.subtle,
   },
   beaconButtonActive: {
     backgroundColor: Colors.primary,

@@ -7,9 +7,10 @@ import {
   StyleSheet,
   Image,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Shield,
   ShieldAlert,
@@ -37,11 +38,18 @@ interface DashboardScreenProps {
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) => {
+  const insets = useSafeAreaInsets();
   const [isLocked, setIsLocked] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
+
+  // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 20
+  ) + 8;
 
   // Bag telemetry state
   const [telemetry, setTelemetry] = useState<BagTelemetry>({
@@ -83,11 +91,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} translucent={true} />
 
-      {/* Top Header */}
-      <View style={styles.headerBar}>
+      {/* Top Header with Dynamic Safe Area Clearance */}
+      <View style={[styles.headerBar, { paddingTop: topInset }]}>
         <View style={styles.brandRow}>
           <Image
             source={require('../../assets/brand/logo.png')}
@@ -310,12 +318,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
         visible={showTour}
         onComplete={() => setShowTour(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: Colors.canvas,
   },
@@ -324,7 +332,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
     backgroundColor: Colors.canvas,
   },
@@ -391,17 +398,18 @@ const styles = StyleSheet.create({
   lockButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     paddingVertical: 7,
     borderRadius: BorderRadius.pill,
-    ...Shadows.subtle,
+    overflow: 'hidden',
+    borderWidth: 1,
   },
   lockButtonArmed: {
     backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   lockButtonDisarmed: {
     backgroundColor: Colors.cardAccent,
-    borderWidth: 1,
     borderColor: Colors.cardAccentBorder,
   },
   lockButtonText: {

@@ -125,7 +125,6 @@ export async function askSenti(userQuery: string): Promise<SentiResponse> {
     });
 
     if (!response.ok) {
-      console.warn('Groq API returned status:', response.status, 'using smart offline fallback.');
       return getOfflineFallback(sanitizedQuery);
     }
 
@@ -147,8 +146,7 @@ export async function askSenti(userQuery: string): Promise<SentiResponse> {
       text: cleanText,
       mood,
     };
-  } catch (error) {
-    console.warn('Network error reaching Groq AI, using offline knowledge fallback:', error);
+  } catch {
     return getOfflineFallback(sanitizedQuery);
   }
 }

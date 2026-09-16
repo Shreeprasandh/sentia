@@ -4,11 +4,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   Image,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Check,
@@ -95,7 +96,14 @@ const INITIAL_ITEMS: EssentialItem[] = [
 ];
 
 export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps> = ({ onBack }) => {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<EssentialItem[]>(INITIAL_ITEMS);
+
+  // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 20
+  ) + 8;
 
   const togglePacked = (id: string) => {
     try {
@@ -113,11 +121,11 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
   const progressPct = Math.round((packedCount / items.length) * 100);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} translucent={true} />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header with Dynamic Safe Area Clearance */}
+      <View style={[styles.header, { paddingTop: topInset }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <ArrowLeft size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -221,12 +229,12 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: Colors.canvas,
   },
@@ -235,7 +243,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardAccentBorder,
   },

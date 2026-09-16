@@ -18,6 +18,7 @@ import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { SentiChatMessage, SentiMood } from '../types';
 import { SentiAvatars } from '../assets/mascotMap';
 import { askSenti } from '../services/sentiAI';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SentiChatModalProps {
   visible: boolean;
@@ -37,6 +38,7 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
   onClose,
   onNavigateAction,
 }) => {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<SentiChatMessage[]>([
     {
       id: 'welcome',
@@ -232,8 +234,8 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
             showsVerticalScrollIndicator={false}
           />
 
-          {/* Input Bar */}
-          <View style={styles.inputContainer}>
+          {/* Input Bar with Dynamic Safe Bottom Clearance */}
+          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
             <TextInput
               style={styles.textInput}
               placeholder="Ask Senti anything about your bag..."

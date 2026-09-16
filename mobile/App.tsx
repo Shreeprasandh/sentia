@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, LogBox } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Compass, CheckSquare, Sparkles, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows } from './src/theme/tokens';
@@ -8,8 +9,29 @@ import { BagRadarScreen } from './src/screens/BagRadarScreen';
 import { EssentialsChecklistScreen } from './src/screens/EssentialsChecklistScreen';
 import { CycleTrackerScreen } from './src/screens/CycleTrackerScreen';
 import { SettingsAndLegalScreen } from './src/screens/SettingsAndLegalScreen';
+import { AppStartupAnimation } from './src/components/AppStartupAnimation';
 
-export default function App() {
+// Completely silence LogBox warning overlays and intercept HMR disconnection toasts
+const _originalWarn = console.warn;
+console.warn = (...args: any[]) => {
+  const msg = args[0];
+  if (
+    typeof msg === 'string' &&
+    (msg.includes('Cannot connect to Expo CLI') ||
+      msg.includes('Expo CLI') ||
+      msg.includes('HMR') ||
+      msg.includes('Metro'))
+  ) {
+    return;
+  }
+  _originalWarn(...args);
+};
+
+LogBox.ignoreAllLogs(true);
+
+function MainContent() {
+  const insets = useSafeAreaInsets();
+  const [isStartingUp, setIsStartingUp] = useState<boolean>(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'radar' | 'essentials' | 'cycle' | 'settings'>('dashboard');
 
   const switchTab = (tab: 'dashboard' | 'radar' | 'essentials' | 'cycle' | 'settings') => {
@@ -19,8 +41,16 @@ export default function App() {
     setCurrentTab(tab);
   };
 
+  // Ensure bottom tab bar floats comfortably above physical home indicator or navigation bar
+  const bottomInset = Math.max(insets.bottom, 12);
+
   return (
     <View style={styles.container}>
+      {/* Choreographed Startup Opening Animation */}
+      {isStartingUp && (
+        <AppStartupAnimation onAnimationComplete={() => setIsStartingUp(false)} />
+      )}
+
       {/* Active Screen Viewport */}
       <View style={styles.viewport}>
         {currentTab === 'dashboard' && <DashboardScreen onNavigate={(route) => setCurrentTab(route as any)} />}
@@ -30,8 +60,8 @@ export default function App() {
         {currentTab === 'settings' && <SettingsAndLegalScreen onBack={() => setCurrentTab('dashboard')} />}
       </View>
 
-      {/* Artisanal Bottom Tab Bar */}
-      <SafeAreaView style={styles.tabBarSafeArea}>
+      {/* Artisanal Bottom Tab Bar with Dynamic Safe Area Clearance */}
+      <View style={[styles.tabBarContainer, { paddingBottom: bottomInset }]}>
         <View style={styles.tabBar}>
           <TouchableOpacity
             style={styles.tabItem}
@@ -128,8 +158,16 @@ export default function App() {
             </Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <MainContent />
+    </SafeAreaProvider>
   );
 }
 
@@ -141,7 +179,7 @@ const styles = StyleSheet.create({
   viewport: {
     flex: 1,
   },
-  tabBarSafeArea: {
+  tabBarContainer: {
     backgroundColor: Colors.canvasElevated,
     borderTopWidth: 1,
     borderTopColor: Colors.cardAccentBorder,
@@ -151,7 +189,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 4,
     backgroundColor: Colors.canvasElevated,
   },
   tabItem: {
