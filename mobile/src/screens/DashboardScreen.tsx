@@ -146,12 +146,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
                 isLocked ? styles.lockButtonArmed : styles.lockButtonDisarmed,
               ]}
               onPress={toggleLock}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
+              focusable={false}
             >
               {isLocked ? (
-                <Lock size={16} color="#FAF6EE" />
+                <Lock size={15} color="#FAF6EE" />
               ) : (
-                <Unlock size={16} color={Colors.textPrimary} />
+                <Unlock size={15} color={Colors.textPrimary} />
               )}
               <Text
                 style={[
@@ -398,11 +399,10 @@ const styles = StyleSheet.create({
   lockButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
+    paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: BorderRadius.pill,
-    overflow: 'hidden',
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
   },
   lockButtonArmed: {
     backgroundColor: Colors.primary,
