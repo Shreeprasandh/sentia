@@ -8,6 +8,7 @@ import {
   ScrollView,
   Image,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,20 +18,67 @@ import {
   ShieldCheck,
   Bell,
   Sparkles,
+  Flame,
+  Droplets,
+  PlusCircle,
+  Activity,
+  Check,
+  CheckCircle2,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { SentiAvatars } from '../assets/mascotMap';
+import { useCircle } from '../context/CircleContext';
 
 interface CycleTrackerScreenProps {
   onBack: () => void;
 }
 
+const PHASES_INFO = [
+  {
+    phase: 'menstrual',
+    title: 'Menstrual Phase',
+    days: 'Days 1–5',
+    color: '#BE185D',
+    bgColor: '#FDF2F8',
+    guidance: 'Low energy & cramping. Prioritize lumbar warmth, hydration, and gentle rest.',
+    supplies: ['Discreet Sanitary Sleeve', '40°C Lumbar Heat', 'Electrolytes'],
+  },
+  {
+    phase: 'follicular',
+    title: 'Follicular Phase',
+    days: 'Days 6–13',
+    color: '#0D9488',
+    bgColor: '#F0FDFA',
+    guidance: 'Rising estrogen & cognitive vitality. Perfect for intense workouts & projects.',
+    supplies: ['Gym Training Gear', 'Hydration Flask', 'Creative Journal'],
+  },
+  {
+    phase: 'ovulatory',
+    title: 'Ovulatory Phase',
+    days: 'Days 14–16',
+    color: '#D97706',
+    bgColor: '#FFFBEB',
+    guidance: 'Peak energy & social confidence. Senti keeps your daily calendar optimized.',
+    supplies: ['Power Bank Insert', 'Hydration Target 2.6L', 'Refresh Mist'],
+  },
+  {
+    phase: 'luteal',
+    title: 'Luteal Phase',
+    days: 'Days 17–28',
+    color: '#064E3B',
+    bgColor: '#FAF6EE',
+    guidance: 'Body temperature +0.3°C. Progesterone rising. Keep hydration steady and rest well.',
+    supplies: ['Magnesium Packets', 'Chamomile Tea', 'Sanitary Prep (48h)'],
+  },
+];
+
 export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
+  const { cycleData, syncCycleToBag, toggleLumbarHeat, logCycleSymptom } = useCircle();
   const [bagSyncEnabled, setBagSyncEnabled] = useState(true);
+  const [selectedPhase, setSelectedPhase] = useState<'menstrual' | 'follicular' | 'ovulatory' | 'luteal'>(cycleData.phase);
 
-  // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
   const topInset = Math.max(
     insets.top,
     Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 20
@@ -47,32 +95,165 @@ export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} translucent={true} />
 
-      {/* Header with Dynamic Safe Area Clearance */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topInset }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <ArrowLeft size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cycle Care Sync</Text>
+        <View style={styles.headerTitleCenter}>
+          <Text style={styles.headerTitle}>Cycle Care Sync</Text>
+          <Text style={styles.headerSubtitle}>Hardware & Wellness Alliance</Text>
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Cycle Ring Card */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Cycle Ring Overview Card */}
         <View style={styles.cycleCard}>
           <View style={styles.ringOuter}>
             <View style={styles.ringInner}>
               <Heart size={26} color="#BE185D" />
-              <Text style={styles.cycleDaysRemaining}>6</Text>
+              <Text style={styles.cycleDaysRemaining}>{cycleData.daysUntilNextCycle}</Text>
               <Text style={styles.cycleDaysLabel}>Days Until Next Cycle</Text>
             </View>
           </View>
 
           <View style={styles.phasePill}>
-            <Text style={styles.phasePillText}>Day 22 • Luteal Phase</Text>
+            <Text style={styles.phasePillText}>{cycleData.phaseTitle}</Text>
           </View>
           <Text style={styles.phaseDescription}>
-            Body temperature slightly elevated. Keep hydration steady and rest well.
+            {cycleData.description}
           </Text>
+
+          {/* 1-Tap Sync to Bag Button */}
+          <TouchableOpacity style={styles.syncBagCta} onPress={syncCycleToBag}>
+            <Sparkles size={15} color="#FAF6EE" />
+            <Text style={styles.syncBagCtaText}>Sync Phase Essentials to Bag</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Hardware Lumbar Thermal Chamber Pouch */}
+        <View style={[styles.hardwareHeatCard, cycleData.lumbarHeatActive && styles.hardwareHeatCardActive]}>
+          <View style={styles.heatCardHeader}>
+            <View style={[styles.heatIconCircle, cycleData.lumbarHeatActive && styles.heatIconCircleActive]}>
+              <Flame size={20} color={cycleData.lumbarHeatActive ? '#B91C1C' : '#D97706'} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={styles.heatTitleRow}>
+                <Text style={styles.heatTitle}>Hardware Lumbar Warmth</Text>
+                <View style={[styles.tempBadge, cycleData.lumbarHeatActive && styles.tempBadgeActive]}>
+                  <Text style={[styles.tempBadgeText, cycleData.lumbarHeatActive && styles.tempBadgeTextActive]}>
+                    40°C • 104°F
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.heatSubtitle}>
+                Integrated ergonomic lower back warming pad for cramp relief
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.heatActionRow}>
+            <Text style={styles.heatTimerText}>
+              {cycleData.lumbarHeatActive
+                ? `Active: ${cycleData.lumbarHeatMinutesRemaining} min remaining (Auto-off)`
+                : 'Standby • 15 min soothing cycle'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.heatTriggerBtn, cycleData.lumbarHeatActive && styles.heatTriggerBtnActive]}
+              onPress={toggleLumbarHeat}
+            >
+              <Flame size={14} color="#FAF6EE" />
+              <Text style={styles.heatTriggerBtnText}>
+                {cycleData.lumbarHeatActive ? 'Turn Off Heat' : 'Start Warmth'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 4-Phase Horizon Selector */}
+        <Text style={styles.sectionHeader}>4-Phase Rhythm & Bag Recommendations</Text>
+        <View style={styles.phaseSelectorRow}>
+          {PHASES_INFO.map((p) => {
+            const isSelected = selectedPhase === p.phase;
+            return (
+              <TouchableOpacity
+                key={p.phase}
+                style={[
+                  styles.phaseTab,
+                  isSelected && { backgroundColor: p.color, borderColor: p.color },
+                ]}
+                onPress={() => {
+                  try {
+                    Haptics.selectionAsync();
+                  } catch {}
+                  setSelectedPhase(p.phase as any);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.phaseTabText,
+                    isSelected && { color: '#FAF6EE', fontWeight: '800' },
+                  ]}
+                >
+                  {p.title.split(' ')[0]}
+                </Text>
+                <Text
+                  style={[
+                    styles.phaseTabDays,
+                    isSelected && { color: 'rgba(255,255,255,0.8)' },
+                  ]}
+                >
+                  {p.days}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Detailed Selected Phase Card */}
+        {(() => {
+          const phaseDetail = PHASES_INFO.find((p) => p.phase === selectedPhase)!;
+          return (
+            <View style={[styles.phaseDetailCard, { backgroundColor: phaseDetail.bgColor }]}>
+              <View style={styles.phaseDetailHeader}>
+                <Text style={[styles.phaseDetailTitle, { color: phaseDetail.color }]}>
+                  {phaseDetail.title} ({phaseDetail.days})
+                </Text>
+              </View>
+              <Text style={styles.phaseDetailGuidance}>{phaseDetail.guidance}</Text>
+
+              <Text style={styles.suppliesLabel}>Recommended Bag Packing:</Text>
+              <View style={styles.suppliesList}>
+                {phaseDetail.supplies.map((sup, idx) => (
+                  <View key={idx} style={styles.supplyBadge}>
+                    <CheckCircle2 size={12} color={phaseDetail.color} />
+                    <Text style={styles.supplyText}>{sup}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
+
+        {/* Symptom & Wellness Logger */}
+        <Text style={styles.sectionHeader}>Quick Symptom Logging</Text>
+        <View style={styles.symptomGrid}>
+          {[
+            { label: 'Mild Cramps', icon: Activity },
+            { label: 'Moderate Cramps', icon: Flame },
+            { label: 'Low Energy', icon: Heart },
+            { label: 'Hydration Deficit', icon: Droplets },
+          ].map((symp, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={styles.symptomCard}
+              onPress={() => logCycleSymptom(symp.label)}
+            >
+              <symp.icon size={16} color={Colors.cognacAmber} />
+              <Text style={styles.symptomLabel}>{symp.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Senti Caring Companion Card */}
@@ -83,9 +264,9 @@ export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }
             resizeMode="contain"
           />
           <View style={{ flex: 1, marginLeft: Spacing.md }}>
-            <Text style={styles.sentiTitle}>Thoughtful Bag Sync</Text>
+            <Text style={styles.sentiTitle}>Empathetic Senti Ally</Text>
             <Text style={styles.sentiBody}>
-              I’ll quietly prompt you 48 hours in advance to pack personal care essentials into your bag’s discreet interior sleeve.
+              I monitor your schedule against your body's rhythm, discreetly prompting essentials 48 hours prior and warming your bag when fatigue strikes.
             </Text>
           </View>
         </View>
@@ -124,10 +305,13 @@ export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }
 
         {/* Strict Privacy Shield Notice */}
         <View style={styles.privacyCard}>
-          <ShieldCheck size={18} color={Colors.primary} />
-          <Text style={styles.privacyText}>
-            End-to-End Private: Your cycle telemetry is encrypted on-device. Sentia never sells, tracks, or shares reproductive health data with third parties.
-          </Text>
+          <ShieldCheck size={20} color={Colors.primary} />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.privacyHeading}>100% Solo-Confidential Data</Text>
+            <Text style={styles.privacyText}>
+              Your cycle telemetry is stored exclusively on this device with biometric encryption. It is permanently excluded from Friends Mode, Group Tribes, and third-party networks.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -143,108 +327,323 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.cardAccentBorder,
+    backgroundColor: Colors.canvas,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: Colors.canvasElevated,
-    borderWidth: 1,
-    borderColor: Colors.cardAccentBorder,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Shadows.subtle,
+  },
+  headerTitleCenter: {
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
+  headerSubtitle: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+  },
   content: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxxl,
   },
   cycleCard: {
-    backgroundColor: Colors.canvasElevated,
-    borderRadius: 24,
-    padding: Spacing.xxl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
     alignItems: 'center',
+    marginVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.cardAccentBorder,
+    borderColor: Colors.borderLight,
     ...Shadows.card,
-    marginBottom: Spacing.lg,
   },
   ringOuter: {
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    borderWidth: 6,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 8,
     borderColor: '#FCE7F3',
+    borderTopColor: '#BE185D',
+    borderRightColor: '#BE185D',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
   ringInner: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: '#FFF1F2',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
   },
   cycleDaysRemaining: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#9D174D',
+    color: '#0F1F1A',
     marginTop: 2,
   },
   cycleDaysLabel: {
-    fontSize: 11,
-    color: '#BE185D',
+    fontSize: 10,
     fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 2,
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
   },
   phasePill: {
-    backgroundColor: '#FCE7F3',
+    backgroundColor: '#FAF3E7',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: BorderRadius.pill,
-    marginTop: Spacing.lg,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
   },
   phasePillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#9D174D',
+    color: Colors.primary,
   },
   phaseDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginTop: Spacing.sm,
-    lineHeight: 18,
     paddingHorizontal: Spacing.md,
+    lineHeight: 18,
+    marginBottom: Spacing.md,
+  },
+  syncBagCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.pill,
+    gap: 8,
+  },
+  syncBagCtaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FAF6EE',
+  },
+  hardwareHeatCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.card,
+  },
+  hardwareHeatCardActive: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FFF5F5',
+  },
+  heatCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  heatIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heatIconCircleActive: {
+    backgroundColor: '#FEE2E2',
+  },
+  heatTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heatTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  tempBadge: {
+    backgroundColor: '#FAF3E7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  tempBadgeActive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+  },
+  tempBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.cognacAmber,
+  },
+  tempBadgeTextActive: {
+    color: '#B91C1C',
+  },
+  heatSubtitle: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  heatActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  heatTimerText: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontStyle: 'italic',
+  },
+  heatTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cognacAmber,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.pill,
+    gap: 6,
+  },
+  heatTriggerBtnActive: {
+    backgroundColor: '#B91C1C',
+  },
+  heatTriggerBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FAF6EE',
+  },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  phaseSelectorRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  phaseTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.canvasElevated,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    alignItems: 'center',
+  },
+  phaseTabText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  phaseTabDays: {
+    fontSize: 9,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
+  phaseDetailCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  phaseDetailHeader: {
+    marginBottom: 4,
+  },
+  phaseDetailTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  phaseDetailGuidance: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  suppliesLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  suppliesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  supplyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  supplyText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  symptomGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  symptomCard: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.subtle,
+  },
+  symptomLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   sentiCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.canvasWarm,
-    borderRadius: 20,
-    padding: Spacing.lg,
+    backgroundColor: '#FAF3E7',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.cardAccentBorder,
-    marginBottom: Spacing.md,
+    borderColor: '#EEDCC0',
+    marginVertical: Spacing.sm,
+    ...Shadows.subtle,
   },
   sentiImage: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
   },
   sentiTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: Colors.primary,
   },
   sentiBody: {
     fontSize: 12,
@@ -256,13 +655,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.canvasElevated,
-    padding: Spacing.lg,
-    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.cardAccentBorder,
-    ...Shadows.subtle,
-    marginBottom: Spacing.lg,
+    borderColor: Colors.borderLight,
+    ...Shadows.card,
   },
   toggleLeft: {
     flexDirection: 'row',
@@ -270,27 +669,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bellIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#E6F4EA',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.canvasWarm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.textPrimary,
   },
   toggleSubtitle: {
     fontSize: 11,
-    color: Colors.textTertiary,
-    marginTop: 2,
+    color: Colors.textSecondary,
+    marginTop: 1,
   },
   switchTrack: {
-    width: 46,
-    height: 26,
-    borderRadius: 13,
+    width: 44,
+    height: 24,
+    borderRadius: 12,
     padding: 2,
     justifyContent: 'center',
   },
@@ -298,13 +697,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   switchOff: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: Colors.cardAccentBorder,
   },
   switchThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FAF6EE',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
   },
   thumbOn: {
     alignSelf: 'flex-end',
@@ -315,15 +714,22 @@ const styles = StyleSheet.create({
   privacyCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#E6F4EA',
-    borderRadius: 16,
+    backgroundColor: '#FAF6EE',
+    borderRadius: BorderRadius.xl,
     padding: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  privacyHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginBottom: 2,
   },
   privacyText: {
-    flex: 1,
     fontSize: 11,
-    color: Colors.primaryMuted,
+    color: Colors.textSecondary,
     lineHeight: 16,
-    marginLeft: 8,
   },
 });

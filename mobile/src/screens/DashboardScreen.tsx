@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Image,
   RefreshControl,
@@ -24,12 +25,18 @@ import {
   Unlock,
   Sparkles,
   CloudSun,
+  Calendar,
+  Users,
+  ShoppingBag,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { SentiCompanion } from '../components/SentiCompanion';
 import { SentiChatModal } from '../components/SentiChatModal';
 import { OnboardingTour } from '../components/OnboardingTour';
+import { DeviceCarousel } from '../components/DeviceCarousel';
+import { WallCalendarModal } from '../components/WallCalendarModal';
+import { useCircle } from '../context/CircleContext';
 import { getSmartWeather } from '../services/weather';
 import { WeatherData, BagTelemetry } from '../types';
 
@@ -39,8 +46,10 @@ interface DashboardScreenProps {
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) => {
   const insets = useSafeAreaInsets();
+  const { calendarEvents } = useCircle();
   const [isLocked, setIsLocked] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -108,13 +117,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           </View>
         </View>
 
-        {/* Compact Living Mascot (Idle sleep-and-fade, tap to open AI chat) */}
-        <SentiCompanion
-          initialMood="01_happy"
-          size={46}
-          onPress={() => setIsChatOpen(true)}
-          idleTimeoutSeconds={15}
-        />
+        {/* Right Controls: 3D Wall Calendar Icon near Senti & Compact Living Mascot */}
+        <View style={styles.headerRightGroup}>
+          <TouchableOpacity
+            style={styles.calendarIconBtn}
+            onPress={() => setIsCalendarOpen(true)}
+            activeOpacity={0.8}
+          >
+            <Calendar size={18} color={Colors.primary} />
+            {calendarEvents.length > 0 && (
+              <View style={styles.calendarDotBadge} />
+            )}
+          </TouchableOpacity>
+
+          <SentiCompanion
+            initialMood="01_happy"
+            size={46}
+            onPress={() => setIsChatOpen(true)}
+            idleTimeoutSeconds={15}
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -128,53 +150,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           />
         }
       >
-        {/* Active Bag Showcase Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroHeader}>
-            <View>
-              <Text style={styles.bagName}>Executive Backpack 01</Text>
-              <View style={styles.connectionPill}>
-                <View style={styles.onlineDot} />
-                <Text style={styles.connectionText}>Connected via BLE</Text>
-              </View>
-            </View>
+        {/* Multi-Bag Carousel (Primary, Secondary, Tertiary with BLE Controls) */}
+        <DeviceCarousel />
 
-            {/* Lock/Unlock Toggle */}
-            <TouchableOpacity
-              style={[
-                styles.lockButton,
-                isLocked ? styles.lockButtonArmed : styles.lockButtonDisarmed,
-              ]}
-              onPress={toggleLock}
-              activeOpacity={0.8}
-              focusable={false}
-            >
-              {isLocked ? (
-                <Lock size={15} color="#FAF6EE" />
-              ) : (
-                <Unlock size={15} color={Colors.textPrimary} />
-              )}
-              <Text
-                style={[
-                  styles.lockButtonText,
-                  isLocked ? styles.textInverse : styles.textDark,
-                ]}
-              >
-                {isLocked ? 'Protected' : 'Unlocked'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Bag Image with subtle perspective */}
-          <View style={styles.bagVisualWrapper}>
-            <Image
-              source={require('../../assets/brand/image1.png')}
-              style={styles.bagVisual}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Quick Telemetry Grid */}
+        {/* Quick Telemetry Grid */}
+        <View style={styles.telemetryCard}>
           <View style={styles.telemetryGrid}>
             {/* Battery */}
             <View style={styles.telemetryTile}>
@@ -265,7 +245,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
               <CheckCircle2 size={22} color={Colors.primary} />
             </View>
             <Text style={styles.actionTitle}>Smart Essentials</Text>
-            <Text style={styles.actionSubtitle}>Daily auto-reset checklist</Text>
+            <Text style={styles.actionSubtitle}>10 Custom packing presets</Text>
           </TouchableOpacity>
 
           {/* Cycle Care */}
@@ -278,7 +258,33 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
               <Sparkles size={22} color="#9D174D" />
             </View>
             <Text style={styles.actionTitle}>Cycle Care Sync</Text>
-            <Text style={styles.actionSubtitle}>Discreet 48h packing alerts</Text>
+            <Text style={styles.actionSubtitle}>40°C Lumbar warmth & rhythm</Text>
+          </TouchableOpacity>
+
+          {/* Sentia Circle */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => onNavigate('circle')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.actionIconBadge, { backgroundColor: '#FAF3E7' }]}>
+              <Users size={22} color={Colors.cognacAmber} />
+            </View>
+            <Text style={styles.actionTitle}>Sentia Circle</Text>
+            <Text style={styles.actionSubtitle}>Friends mode, radar & tribes</Text>
+          </TouchableOpacity>
+
+          {/* Boutique */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => onNavigate('shop')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.actionIconBadge, { backgroundColor: '#FEF3C7' }]}>
+              <ShoppingBag size={22} color="#D97706" />
+            </View>
+            <Text style={styles.actionTitle}>Sentia Boutique</Text>
+            <Text style={styles.actionSubtitle}>Luxury hardware & inserts</Text>
           </TouchableOpacity>
 
           {/* Settings & Support */}
@@ -290,8 +296,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             <View style={[styles.actionIconBadge, { backgroundColor: '#E0E7FF' }]}>
               <ShieldAlert size={22} color="#3730A3" />
             </View>
-            <Text style={styles.actionTitle}>Security & Settings</Text>
-            <Text style={styles.actionSubtitle}>Privacy, support & warranty</Text>
+            <Text style={styles.actionTitle}>Security & SOS</Text>
+            <Text style={styles.actionSubtitle}>Guardian panic & privacy</Text>
           </TouchableOpacity>
         </View>
 
@@ -312,6 +318,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
         visible={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         onNavigateAction={(route) => onNavigate(route)}
+      />
+
+      {/* 3D Wall Calendar Modal with Cycle Care Horizon */}
+      <WallCalendarModal
+        visible={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
       />
 
       {/* Onboarding Tour Modal */}
@@ -355,6 +367,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textTertiary,
     fontWeight: '500',
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  calendarIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.canvasElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    position: 'relative',
+    ...Shadows.subtle,
+  },
+  calendarDotBadge: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.cognacAmber,
+  },
+  telemetryCard: {
+    backgroundColor: Colors.canvasElevated,
+    borderRadius: 20,
+    padding: Spacing.md,
+    marginVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.card,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -402,7 +449,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  lockButtonPressed: {
+    transform: [{ scale: 0.96 }],
   },
   lockButtonArmed: {
     backgroundColor: Colors.primary,

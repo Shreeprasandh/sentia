@@ -132,3 +132,147 @@ export interface UserProfile {
   preferred_persona: 'professional' | 'student' | 'traveler' | 'parent';
   created_at: string;
 }
+
+export type DeviceRole = 'primary' | 'secondary' | 'tertiary';
+
+export interface MultiDeviceBag {
+  id: string;
+  name: string;
+  model: string;
+  role: DeviceRole;
+  battery: number;
+  isCharging: boolean;
+  isLocked: boolean;
+  isConnected: boolean;
+  zipperClosed: boolean;
+  bottleInserted: boolean;
+  weightKg: number;
+  tempC: number;
+  humidityPct: number;
+  lastSeenText: string;
+  image: any;
+  colorName: string;
+}
+
+export interface FriendContact {
+  id: string;
+  name: string;
+  salutation: string;
+  avatarMood: SentiMood;
+  bagModel: string;
+  battery: number;
+  distanceText: string;
+  isNearby: boolean;
+  isOnline: boolean;
+  safeStatusText: string;
+  friendCode: string;
+}
+
+export interface GroupGearItem {
+  id: string;
+  title: string;
+  assignedToName: string;
+  isPacked: boolean;
+  category: string;
+}
+
+export interface GroupSafeArrival {
+  id: string;
+  userName: string;
+  locationName: string;
+  timestamp: string;
+}
+
+export interface GroupTribe {
+  id: string;
+  name: string;
+  accentColor: string;
+  memberCount: number;
+  maxMembers: number; // Enforced at 10
+  members: FriendContact[];
+  gearChecklist: GroupGearItem[];
+  safeArrivals: GroupSafeArrival[];
+  description: string;
+  createdAt: string;
+}
+
+export interface BoutiqueProduct {
+  id: string;
+  name: string;
+  tagline: string;
+  priceUsd: number;
+  category: 'smart_pack' | 'hydration' | 'cycle_care' | 'radar_tag' | 'power_insert';
+  image: any;
+  rating: number;
+  reviewsCount: number;
+  inStock: boolean;
+  badge?: string;
+  description: string;
+  specs: { label: string; value: string }[];
+  howToUseSteps: string[];
+  faq: { question: string; answer: string }[];
+  reviews: {
+    id: string;
+    userName: string;
+    rating: number;
+    date: string;
+    comment: string;
+    verifiedPurchase: boolean;
+  }[];
+}
+
+export interface CartItem {
+  product: BoutiqueProduct;
+  quantity: number;
+}
+
+export interface ExtendedProfile {
+  fullName: string;
+  name?: string;
+  salutation: string;
+  email: string;
+  phone: string;
+  userCode: string;
+  handle: string;
+  shippingAddress: string;
+  avatarUri?: string;
+  guardianName: string;
+  guardianPhone: string;
+  guardianEmail: string;
+}
+
+export interface ChecklistPreset {
+  id: string;
+  name: string;
+  iconName: string;
+  isDefault: boolean;
+  items: EssentialItem[];
+  scheduledDays: number[]; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  specificDate?: string;   // 'YYYY-MM-DD'
+  alertTime?: string;      // e.g. '08:15 AM'
+  createdAt: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // 'YYYY-MM-DD'
+  time?: string; // '09:00 AM'
+  category: 'task' | 'meeting' | 'travel' | 'cycle' | 'health' | 'reminder';
+  notes?: string;
+  attachedPresetId?: string;
+  isCompleted?: boolean;
+}
+
+export interface CyclePhaseData {
+  dayOfCycle: number;
+  totalCycleDays: number;
+  phase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal';
+  phaseTitle: string;
+  daysUntilNextCycle: number;
+  description: string;
+  recommendedSupplies: string[];
+  lumbarHeatActive: boolean;
+  lumbarHeatMinutesRemaining: number;
+}
+

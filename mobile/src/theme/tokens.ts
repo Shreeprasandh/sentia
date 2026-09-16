@@ -33,8 +33,12 @@ export const Colors = {
   textTertiary: '#7D8882',    // Quiet timestamp / caption
   textInverse: '#FAF6EE',     // Porcelain text on emerald
 
-  // Hardware Accents
+  // Hardware Accents & Friends Mode Palette
   goldAccent: '#C5A059',      // Champagne brass buckle accent
+  cognacAmber: '#92400E',     // Warm Cognac Amber for Friends Mode
+  cognacAmberLight: '#B45309',
+  champagneParchment: '#FAF3E7',
+  borderLight: '#E5D8C5',     // Soft card border
   batteryGreen: '#10B981',
   batteryAmber: '#F59E0B',
   batteryRed: '#EF4444',

@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, LogBox } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Compass, CheckSquare, Sparkles, Settings } from 'lucide-react-native';
+import { Home, Compass, CheckSquare, Sparkles, Settings, Users, ShoppingBag } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows } from './src/theme/tokens';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { BagRadarScreen } from './src/screens/BagRadarScreen';
 import { EssentialsChecklistScreen } from './src/screens/EssentialsChecklistScreen';
 import { CycleTrackerScreen } from './src/screens/CycleTrackerScreen';
+import { CircleScreen } from './src/screens/CircleScreen';
+import { ShopScreen } from './src/screens/ShopScreen';
 import { SettingsAndLegalScreen } from './src/screens/SettingsAndLegalScreen';
 import { AppStartupAnimation } from './src/components/AppStartupAnimation';
+import { CircleProvider, useCircle } from './src/context/CircleContext';
+import { useDoubleBackExit } from './src/hooks/useDoubleBackExit';
 
 // Completely silence LogBox warning overlays and intercept HMR disconnection toasts
 const _originalWarn = console.warn;
@@ -29,12 +33,21 @@ console.warn = (...args: any[]) => {
 
 LogBox.ignoreAllLogs(true);
 
+type NavTab = 'dashboard' | 'radar' | 'essentials' | 'cycle' | 'circle' | 'shop' | 'settings';
+
 function MainContent() {
   const insets = useSafeAreaInsets();
+  const { mode } = useCircle();
   const [isStartingUp, setIsStartingUp] = useState<boolean>(true);
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'radar' | 'essentials' | 'cycle' | 'settings'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
 
-  const switchTab = (tab: 'dashboard' | 'radar' | 'essentials' | 'cycle' | 'settings') => {
+  // Android Double-Back Hardware Button Protection
+  useDoubleBackExit({
+    currentTab,
+    onNavigateHome: () => setCurrentTab('dashboard'),
+  });
+
+  const switchTab = (tab: NavTab) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
@@ -53,10 +66,12 @@ function MainContent() {
 
       {/* Active Screen Viewport */}
       <View style={styles.viewport}>
-        {currentTab === 'dashboard' && <DashboardScreen onNavigate={(route) => setCurrentTab(route as any)} />}
+        {currentTab === 'dashboard' && <DashboardScreen onNavigate={(route) => setCurrentTab(route as NavTab)} />}
         {currentTab === 'radar' && <BagRadarScreen onBack={() => setCurrentTab('dashboard')} />}
         {currentTab === 'essentials' && <EssentialsChecklistScreen onBack={() => setCurrentTab('dashboard')} />}
         {currentTab === 'cycle' && <CycleTrackerScreen onBack={() => setCurrentTab('dashboard')} />}
+        {currentTab === 'circle' && <CircleScreen onBack={() => setCurrentTab('dashboard')} />}
+        {currentTab === 'shop' && <ShopScreen onBack={() => setCurrentTab('dashboard')} />}
         {currentTab === 'settings' && <SettingsAndLegalScreen onBack={() => setCurrentTab('dashboard')} />}
       </View>
 
@@ -70,12 +85,12 @@ function MainContent() {
           >
             <Home
               size={20}
-              color={currentTab === 'dashboard' ? Colors.primary : Colors.textTertiary}
+              color={currentTab === 'dashboard' ? (mode === 'friends' ? Colors.cognacAmber : Colors.primary) : Colors.textTertiary}
             />
             <Text
               style={[
                 styles.tabLabel,
-                currentTab === 'dashboard' && styles.tabLabelActive,
+                currentTab === 'dashboard' && (mode === 'friends' ? styles.tabLabelCognac : styles.tabLabelActive),
               ]}
             >
               Home
@@ -122,20 +137,20 @@ function MainContent() {
 
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => switchTab('cycle')}
+            onPress={() => switchTab('circle')}
             activeOpacity={0.7}
           >
-            <Sparkles
+            <Users
               size={20}
-              color={currentTab === 'cycle' ? '#9D174D' : Colors.textTertiary}
+              color={currentTab === 'circle' ? Colors.cognacAmber : Colors.textTertiary}
             />
             <Text
               style={[
                 styles.tabLabel,
-                currentTab === 'cycle' && { color: '#9D174D', fontWeight: '700' },
+                currentTab === 'circle' && styles.tabLabelCognac,
               ]}
             >
-              Cycle
+              Circle
             </Text>
           </TouchableOpacity>
 
@@ -166,7 +181,9 @@ function MainContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <MainContent />
+      <CircleProvider>
+        <MainContent />
+      </CircleProvider>
     </SafeAreaProvider>
   );
 }
@@ -206,6 +223,10 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: Colors.primary,
+    fontWeight: '700',
+  },
+  tabLabelCognac: {
+    color: Colors.cognacAmber,
     fontWeight: '700',
   },
 });

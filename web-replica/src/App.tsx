@@ -1,19 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  Shield,
-  BatteryCharging,
   BatteryMedium,
   Droplets,
-  Thermometer,
   Scale,
   AlertTriangle,
-  Radio,
   Send,
   Lock,
   Unlock,
-  Bell,
-  RefreshCw,
 } from 'lucide-react';
 
 const SUPABASE_URL = 'https://mlfkgcriezxzyapjixip.supabase.co';
@@ -58,7 +52,7 @@ export default function App() {
   const [lastLog, setLastLog] = useState<string>('Simulator initialized. Ready for broadcast.');
   const [receivedCommands, setReceivedCommands] = useState<string[]>([]);
   const [sosHolding, setSosHolding] = useState(false);
-  const sosHoldTimer = useRef<NodeJS.Timeout | null>(null);
+  const sosHoldTimer = useRef<any>(null);
 
   // Subscribe to commands from mobile app
   useEffect(() => {
