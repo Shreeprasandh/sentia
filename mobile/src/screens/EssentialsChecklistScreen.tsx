@@ -69,6 +69,8 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
     addItemToActiveList,
     removeItemFromActiveList,
     resetActiveItems,
+    activeBagId,
+    profile,
   } = useCircle();
 
   const [showNewPresetModal, setShowNewPresetModal] = useState(false);
@@ -172,8 +174,8 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
     if (!wizardItemName.trim()) return;
     const newItem: EssentialItem = {
       id: `wiz-item-${Date.now()}`,
-      user_id: 'user-01',
-      bag_id: 'bag-01',
+      user_id: profile.userCode || 'user-01',
+      bag_id: activeBagId || 'bag-01',
       item_name: wizardItemName.trim(),
       category: wizardItemCat,
       is_packed: false,
@@ -190,8 +192,8 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
     const standardKit: EssentialItem[] = [
       {
         id: `wiz-item-${Date.now()}-1`,
-        user_id: 'user-01',
-        bag_id: 'bag-01',
+        user_id: profile.userCode || 'user-01',
+        bag_id: activeBagId || 'bag-01',
         item_name: 'Laptop & Magnetic USB-C Charger',
         category: 'electronics',
         is_packed: false,
@@ -201,8 +203,8 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
       },
       {
         id: `wiz-item-${Date.now()}-2`,
-        user_id: 'user-01',
-        bag_id: 'bag-01',
+        user_id: profile.userCode || 'user-01',
+        bag_id: activeBagId || 'bag-01',
         item_name: 'Smart Hydration Flask',
         category: 'health',
         is_packed: false,
@@ -212,8 +214,8 @@ export const EssentialsChecklistScreen: React.FC<EssentialsChecklistScreenProps>
       },
       {
         id: `wiz-item-${Date.now()}-3`,
-        user_id: 'user-01',
-        bag_id: 'bag-01',
+        user_id: profile.userCode || 'user-01',
+        bag_id: activeBagId || 'bag-01',
         item_name: 'Biometric Access Keycard',
         category: 'documents',
         is_packed: false,

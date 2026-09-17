@@ -253,8 +253,12 @@ export async function askSenti(userQuery: string): Promise<SentiResponse> {
         suggestedAction = { label: 'View Checklist', route: 'essentials' };
       } else if (lower.includes('cycle') || lower.includes('period')) {
         suggestedAction = { label: 'Cycle Care', route: 'cycle' };
-      } else if (lower.includes('tribe') || lower.includes('circle')) {
+      } else if (lower.includes('tribe') || lower.includes('circle') || lower.includes('friend')) {
         suggestedAction = { label: 'Social Circle', route: 'circle' };
+      } else if (lower.includes('shop') || lower.includes('buy') || lower.includes('store') || lower.includes('boutique') || lower.includes('sling')) {
+        suggestedAction = { label: 'Explore Boutique', route: 'shop' };
+      } else if (lower.includes('vitality') || lower.includes('ergonomic') || lower.includes('posture') || lower.includes('spine')) {
+        suggestedAction = { label: 'Vitality & Focus', route: 'cycle' };
       }
     }
 

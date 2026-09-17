@@ -135,8 +135,9 @@ export const WallCalendarModal: React.FC<WallCalendarModalProps> = ({ visible, o
 
   // Helper to determine cycle phase on any date
   const getCycleIndicator = (dateStr: string) => {
-    const targetDate = new Date(dateStr);
-    const day = targetDate.getDate();
+    const parts = dateStr.split('-').map(Number);
+    const day = parts[2];
+    if (!day) return null;
 
     // Cycle simulation based on 28-day cycle starting around day 1
     if (day >= 1 && day <= 5) {
@@ -154,8 +155,9 @@ export const WallCalendarModal: React.FC<WallCalendarModalProps> = ({ visible, o
   const selectedDateEvents = calendarEvents.filter((e) => e.date === selectedDateStr);
   const selectedDateCycle = getCycleIndicator(selectedDateStr);
 
-  // Find if a bag preset is scheduled for selected date
-  const selectedDateObj = new Date(selectedDateStr);
+  // Find if a bag preset is scheduled for selected date (timezone-safe local date)
+  const [sy, sm, sd] = selectedDateStr.split('-').map(Number);
+  const selectedDateObj = new Date(sy, (sm || 1) - 1, sd || 1);
   const selectedDayOfWeek = selectedDateObj.getDay();
   const matchedPreset = presets.find(
     (p) => p.specificDate === selectedDateStr || p.scheduledDays.includes(selectedDayOfWeek)

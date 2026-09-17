@@ -8,7 +8,7 @@ let inMemoryWeatherCache: WeatherData | null = null;
 /**
  * Fetch smart weather and packing recommendations with 45-minute cache defense.
  */
-export async function getSmartWeather(lat: number = 13.0827, lng: number = 80.2707, forceRefresh = false): Promise<WeatherData> {
+export async function getSmartWeather(lat: number = 12.9716, lng: number = 77.5946, forceRefresh = false): Promise<WeatherData> {
   const now = Date.now();
 
   // Zero-Waste Cache Check

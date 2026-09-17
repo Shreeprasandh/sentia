@@ -10,6 +10,7 @@ import {
   Animated,
   Easing,
   Alert,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -26,6 +27,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { HardwareGateway } from '../services/hardwareGateway';
 import { useCircle } from '../context/CircleContext';
+import { getCurrentCoordinates } from '../services/locationService';
 
 interface BagRadarScreenProps {
   onBack: () => void;
@@ -36,6 +38,18 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
   const { activeBag, activeTelemetry, triggerEmergencySOS, profile } = useCircle();
   const [isBeaconActive, setIsBeaconActive] = useState(false);
   const [geofenceArmed, setGeofenceArmed] = useState(true);
+  const [coordsText, setCoordsText] = useState('12.9716° N, 77.5946° E');
+
+  // Load real device GPS coordinates for bag radar pin
+  useEffect(() => {
+    getCurrentCoordinates().then((res) => {
+      if (res.latitude && res.longitude) {
+        const latStr = `${Math.abs(res.latitude).toFixed(4)}° ${res.latitude >= 0 ? 'N' : 'S'}`;
+        const lngStr = `${Math.abs(res.longitude).toFixed(4)}° ${res.longitude >= 0 ? 'E' : 'W'}`;
+        setCoordsText(`${latStr}, ${lngStr}`);
+      }
+    });
+  }, []);
 
   // Ripple Animation Setup (Active only while focused on Radar screen)
   const ripple1 = useRef(new Animated.Value(0)).current;
@@ -154,10 +168,26 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               const res = await triggerEmergencySOS();
               if (res.success) {
-                Alert.alert(
-                  'SOS Transmitted',
-                  `Distress telemetry beacon disarmed and sent to ${profile.guardianEmail || 'guardian'}.`
-                );
+                if (res.smsUrl && profile.guardianPhone) {
+                  Alert.alert(
+                    'SOS Transmitted',
+                    `Distress telemetry beacon armed and dispatched to ${profile.guardianEmail || 'guardian'}. Would you also like to open your cellular messaging app to send a direct emergency SMS?`,
+                    [
+                      { text: 'Done', style: 'cancel' },
+                      {
+                        text: 'Send SMS',
+                        onPress: () => {
+                          Linking.openURL(res.smsUrl!).catch(() => {});
+                        },
+                      },
+                    ]
+                  );
+                } else {
+                  Alert.alert(
+                    'SOS Transmitted',
+                    `Distress telemetry beacon armed and dispatched to ${profile.guardianEmail || 'guardian'}.`
+                  );
+                }
               } else {
                 Alert.alert('SOS Active', 'Acoustic and mesh distress beacon engaged locally.');
               }
@@ -277,7 +307,7 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
             </View>
             <View style={styles.metaItem}>
               <Compass size={14} color={Colors.textTertiary} />
-              <Text style={styles.metaText}>13.0827° N, 80.2707° E</Text>
+              <Text style={styles.metaText}>{coordsText}</Text>
             </View>
           </View>
         </View>

@@ -87,10 +87,11 @@ export async function speakSenti(text: string): Promise<void> {
   try {
     await Speech.stop();
 
-    // Sanitize input: strip bracketed tags, markdown asterisks, URLs, and prompt-injection artifacts
+    // Sanitize input: strip bracketed tags, action chips, markdown asterisks, URLs, and prompt-injection artifacts
     const cleanSpeechText = text
+      .replace(/\[ACTION:[^\]]+\]/gi, '')
       .replace(/\[MOOD:[a-z0-9_]+\]/gi, '')
-      .replace(/\[[A-Z0-9_]+\]/g, '')
+      .replace(/\[[A-Z0-9_:| -]+\]/gi, '')
       .replace(/[*_~`]/g, '')
       .replace(/https?:\/\/\S+/gi, '')
       .trim();

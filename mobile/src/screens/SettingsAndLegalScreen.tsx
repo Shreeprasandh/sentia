@@ -11,6 +11,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -152,7 +153,23 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               const res = await triggerEmergencySOS();
               if (res.success) {
-                Alert.alert('SOS Dispatched', `Emergency distress alert successfully transmitted to ${profile.guardianEmail || 'guardian'}.`);
+                if (res.smsUrl && profile.guardianPhone) {
+                  Alert.alert(
+                    'SOS Dispatched',
+                    `Emergency distress alert successfully transmitted to ${profile.guardianEmail || 'guardian'}. Would you like to open your messaging app to send a direct emergency SMS?`,
+                    [
+                      { text: 'Done', style: 'cancel' },
+                      {
+                        text: 'Send SMS',
+                        onPress: () => {
+                          Linking.openURL(res.smsUrl!).catch(() => {});
+                        },
+                      },
+                    ]
+                  );
+                } else {
+                  Alert.alert('SOS Dispatched', `Emergency distress alert successfully transmitted to ${profile.guardianEmail || 'guardian'}.`);
+                }
               } else {
                 Alert.alert('SOS Alert', 'Distress beacon activated locally.');
               }

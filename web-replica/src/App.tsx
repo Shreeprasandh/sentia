@@ -28,7 +28,7 @@ interface BagModelDef {
   colorName: string;
   image: string;
   modelGlb: string;
-  role: 'primary' | 'secondary' | 'tertiary';
+  role: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
 }
 
 const BAG_MODELS: BagModelDef[] = [
@@ -58,6 +58,15 @@ const BAG_MODELS: BagModelDef[] = [
     image: '/image3.png',
     modelGlb: '/models/sentia_crb03.glb',
     role: 'tertiary',
+  },
+  {
+    id: 'bag-04',
+    name: 'Smart Commuter Sling',
+    model: 'Model SLG-04 • Aerodynamic Carbon',
+    colorName: 'Obsidian Carbon',
+    image: '/image5.png',
+    modelGlb: '/models/sentia_slg04.glb',
+    role: 'quaternary',
   },
 ];
 
@@ -124,6 +133,22 @@ const INITIAL_HARDWARE_MAP: Record<string, BagHardwareState> = {
     tamperDetected: false,
     sosTriggered: false,
     isLocked: false,
+    lumbarHeatActive: false,
+    isPairingMode: false,
+  },
+  'bag-04': {
+    bagId: 'bag-04',
+    batteryLevel: 98,
+    isCharging: false,
+    zipperClosed: true,
+    bottleInserted: false,
+    weightKg: 0.9,
+    internalTempC: 22.8,
+    humidityPct: 46,
+    bleRssi: -52,
+    tamperDetected: false,
+    sosTriggered: false,
+    isLocked: true,
     lumbarHeatActive: false,
     isPairingMode: false,
   },
@@ -221,6 +246,19 @@ export default function App() {
               [bagDef.id]: { ...prev[bagDef.id], lumbarHeatActive: false },
             }));
             setLastLog(`Lumbar thermal heat pouch deactivated on ${bagDef.name}`);
+          } else if (cmd.command === 'DISMISS_ALARM') {
+            setHardwareMap((prev) => ({
+              ...prev,
+              [bagDef.id]: {
+                ...prev[bagDef.id],
+                sosTriggered: false,
+                tamperDetected: false,
+              },
+            }));
+            setLastLog(`Locator alarm dismissed on ${bagDef.name}`);
+          } else if (cmd.command === 'LED_COLOR') {
+            const color = cmd.color || cmd.payload?.color || '#10B981';
+            setLastLog(`LED ambient smart ring color updated (${color}) on ${bagDef.name}`);
           }
         })
         .subscribe((status) => {
@@ -397,10 +435,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* 3-Bag Selector Bar */}
+      {/* 4-Bag Selector Bar */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '14px',
         marginBottom: '24px',
       }}>

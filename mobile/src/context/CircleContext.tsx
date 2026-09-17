@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
@@ -114,6 +114,7 @@ interface CircleContextType {
   vitalityData: VitalityFocusData;
   toggleVitalityLumbarHeat: () => void;
   startFocusSprint: (minutes?: number) => void;
+  stopFocusSprint: () => void;
   logHydrationSip: (amountL?: number) => void;
   addMembersToGroup: (groupId: string, friendIds: string[]) => void;
   sentiMessages: SentiChatMessage[];
@@ -439,11 +440,15 @@ const INITIAL_CALENDAR_EVENTS: CalendarEvent[] = [
 const STORAGE_AUTH_SESSION = 'sentia_auth_session_v1';
 const STORAGE_USER_PROFILE = 'sentia_user_profile_v1';
 const STORAGE_PAIRED_BAGS = 'sentia_paired_bags_v1';
+const STORAGE_PRESETS = 'sentia_presets_v1';
+const STORAGE_CALENDAR_EVENTS = 'sentia_calendar_events_v1';
+const STORAGE_CART = 'sentia_cart_v1';
 
 const BAG_IMAGE_MAP: Record<string, any> = {
   'bag-01': require('../../assets/brand/image1.png'),
   'bag-02': require('../../assets/brand/image4.png'),
   'bag-03': require('../../assets/brand/image3.png'),
+  'bag-04': require('../../assets/brand/image5.png'),
 };
 
 const getBagImage = (bagId: string, fallbackImage?: any) => {
@@ -489,6 +494,7 @@ const deleteSecureItem = async (key: string) => {
 const CircleContext = createContext<CircleContextType | undefined>(undefined);
 
 export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isLoadedRef = useRef(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState<boolean>(false);
   const [mode, setMode] = useState<'solo' | 'friends'>('solo');
@@ -603,6 +609,17 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
   };
 
+  const stopFocusSprint = () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch {}
+    setVitalityData((prev) => ({
+      ...prev,
+      isFocusSprintActive: false,
+      focusSprintMinutesRemaining: prev.focusSprintTotalMinutes || 90,
+    }));
+  };
+
   const logHydrationSip = (amountL = 0.25) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -637,11 +654,11 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
   const [hardwareBagsLiveMap, setHardwareBagsLiveMap] = useState<Record<string, BagTelemetry>>({});
 
-  // Real-time Supabase Realtime Subscription across all 3 hardware bags
+  // Real-time Supabase Realtime Subscription across all hardware bags
   useEffect(() => {
-    HardwareGateway.prewarmCommands(['bag-01', 'bag-02', 'bag-03']);
+    HardwareGateway.prewarmCommands(['bag-01', 'bag-02', 'bag-03', 'bag-04']);
     const unsubscribe = HardwareGateway.subscribeAllBags(
-      ['bag-01', 'bag-02', 'bag-03'],
+      ['bag-01', 'bag-02', 'bag-03', 'bag-04'],
       (bagId, telem) => {
         setHardwareBagsLiveMap((prev) => ({ ...prev, [bagId]: telem }));
 
@@ -717,8 +734,43 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           } catch {}
         }
+
+        const savedPresetsJson = await getSecureItem(STORAGE_PRESETS);
+        if (savedPresetsJson) {
+          try {
+            const parsedPresets = JSON.parse(savedPresetsJson);
+            if (Array.isArray(parsedPresets) && parsedPresets.length > 0) {
+              setPresets(parsedPresets);
+              const def = parsedPresets.find((p: any) => p.isDefault) || parsedPresets[0];
+              setActivePresetId(def.id);
+              setActiveItems(def.items);
+            }
+          } catch {}
+        }
+
+        const savedEventsJson = await getSecureItem(STORAGE_CALENDAR_EVENTS);
+        if (savedEventsJson) {
+          try {
+            const parsedEvents = JSON.parse(savedEventsJson);
+            if (Array.isArray(parsedEvents)) {
+              setCalendarEvents(parsedEvents);
+            }
+          } catch {}
+        }
+
+        const savedCartJson = await getSecureItem(STORAGE_CART);
+        if (savedCartJson) {
+          try {
+            const parsedCart = JSON.parse(savedCartJson);
+            if (Array.isArray(parsedCart)) {
+              setCart(parsedCart);
+            }
+          } catch {}
+        }
       } catch (err) {
         console.warn('Session restoration note:', err);
+      } finally {
+        isLoadedRef.current = true;
       }
     };
 
@@ -849,6 +901,22 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Calendar Events
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(INITIAL_CALENDAR_EVENTS);
+
+  // Synchronize state mutations to SecureStore / local persistence
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    saveSecureItem(STORAGE_PRESETS, JSON.stringify(presets));
+  }, [presets]);
+
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    saveSecureItem(STORAGE_CALENDAR_EVENTS, JSON.stringify(calendarEvents));
+  }, [calendarEvents]);
+
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    saveSecureItem(STORAGE_CART, JSON.stringify(cart));
+  }, [cart]);
 
   // Cycle Care Sync & Lumbar Warmth
   const [cycleData, setCycleData] = useState<CyclePhaseData>({
@@ -1008,10 +1076,10 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     image: any,
     targetBagId?: string
   ): boolean => {
-    if (bags.length >= 3) {
+    if (bags.length >= 4) {
       Alert.alert(
         'Maximum Devices Reached',
-        'Sentia supports up to 3 paired bag devices (Primary, Secondary, Tertiary). Unpair an existing device to connect a new one.'
+        'Sentia supports up to 4 paired bag devices (Primary, Secondary, Tertiary, Quaternary). Unpair an existing device to connect a new one.'
       );
       return false;
     }
@@ -1024,12 +1092,13 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
 
-    const assignedRole: 'secondary' | 'tertiary' = bags.length === 1 ? 'secondary' : 'tertiary';
+    const assignedRole: DeviceRole = bags.length === 1 ? 'secondary' : bags.length === 2 ? 'tertiary' : 'quaternary';
     let assignedId = targetBagId;
     if (!assignedId) {
       const existingIds = bags.map((b) => b.id);
       if (!existingIds.includes('bag-02')) assignedId = 'bag-02';
       else if (!existingIds.includes('bag-03')) assignedId = 'bag-03';
+      else if (!existingIds.includes('bag-04')) assignedId = 'bag-04';
       else assignedId = `bag-0${bags.length + 1}`;
     }
 
@@ -1103,10 +1172,16 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           style: 'destructive',
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            const remaining = bags.filter((b) => b.id !== bagId);
-            if (activeBagId === bagId) {
+            const remaining = bags
+              .filter((b) => b.id !== bagId)
+              .map((b, idx) => {
+                if (activeBagId === bagId && idx === 0) {
+                  return { ...b, role: 'primary' as DeviceRole };
+                }
+                return b;
+              });
+            if (activeBagId === bagId && remaining.length > 0) {
               setActiveBagId(remaining[0].id);
-              remaining[0].role = 'primary';
             }
             setBags(remaining);
             saveSecureItem(
@@ -1164,7 +1239,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       items: initialItems && initialItems.length > 0 ? initialItems : [
         {
           id: `item-${Date.now()}-1`,
-          user_id: 'user-01',
+          user_id: profile.userCode || 'user-01',
           bag_id: activeBagId,
           item_name: 'Key Essentials',
           category: 'other',
@@ -1273,7 +1348,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!name.trim()) return;
     const newItem: EssentialItem = {
       id: `item-${Date.now()}`,
-      user_id: 'user-01',
+      user_id: profile.userCode || 'user-01',
       bag_id: activeBagId,
       item_name: name.trim(),
       category: category as any,
@@ -1329,7 +1404,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const newItems: EssentialItem[] = cycleData.recommendedSupplies.map((sup, idx) => ({
       id: `cycle-item-${Date.now()}-${idx}`,
-      user_id: 'user-01',
+      user_id: profile.userCode || 'user-01',
       bag_id: activeBagId,
       item_name: sup,
       category: 'hygiene',
@@ -1646,6 +1721,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         vitalityData,
         toggleVitalityLumbarHeat,
         startFocusSprint,
+        stopFocusSprint,
         logHydrationSip,
         addMembersToGroup,
         sentiMessages,

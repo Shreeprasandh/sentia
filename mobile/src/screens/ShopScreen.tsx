@@ -57,19 +57,9 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
   const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [lastOrderNumber, setLastOrderNumber] = useState('');
 
-  const getProduct3DMeta = (prodId: string) => {
-    switch (prodId) {
-      case 'prod-1':
-        return BAG_3D_MODELS['bag-01'];
-      case 'prod-2':
-        return BAG_3D_MODELS['bag-02'];
-      case 'prod-3':
-        return BAG_3D_MODELS['bag-03'];
-      case 'prod-4':
-        return BAG_3D_MODELS['bag-04'];
-      default:
-        return BAG_3D_MODELS['bag-01'];
-    }
+  const getProduct3DMeta = (product?: BoutiqueProduct | null) => {
+    if (!product || !product.bag3DModelId) return null;
+    return BAG_3D_MODELS[product.bag3DModelId] || null;
   };
 
   const topInset =
@@ -219,37 +209,39 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
 
               <ScrollView contentContainerStyle={styles.sheetScroll} showsVerticalScrollIndicator={false}>
                 <View style={styles.modalImageWrap}>
-                  <TouchableOpacity
-                    style={styles.modalFloatingBadge}
-                    onPress={() => {
-                      try {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      } catch {}
-                      setDetailViewMode((prev) => (prev === '2d' ? '3d' : '2d'));
-                    }}
-                    activeOpacity={0.8}
-                    accessibilityLabel={
-                      detailViewMode === '3d'
-                        ? 'Switch to 2D studio photo'
-                        : 'Switch to 3D interactive model'
-                    }
-                  >
-                    {detailViewMode === '3d' ? (
-                      <>
-                        <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
-                        <Text style={styles.floatingBadgeText}>2D</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
-                        <Text style={styles.floatingBadgeText}>3D</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {getProduct3DMeta(selectedProduct) && (
+                    <TouchableOpacity
+                      style={styles.modalFloatingBadge}
+                      onPress={() => {
+                        try {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        } catch {}
+                        setDetailViewMode((prev) => (prev === '2d' ? '3d' : '2d'));
+                      }}
+                      activeOpacity={0.8}
+                      accessibilityLabel={
+                        detailViewMode === '3d'
+                          ? 'Switch to 2D studio photo'
+                          : 'Switch to 3D interactive model'
+                      }
+                    >
+                      {detailViewMode === '3d' ? (
+                        <>
+                          <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                          <Text style={styles.floatingBadgeText}>2D</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                          <Text style={styles.floatingBadgeText}>3D</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
 
-                  {detailViewMode === '3d' ? (
+                  {detailViewMode === '3d' && getProduct3DMeta(selectedProduct) ? (
                     <Sentia3DViewer
-                      modelMeta={getProduct3DMeta(selectedProduct.id)}
+                      modelMeta={getProduct3DMeta(selectedProduct)!}
                       height={240}
                       autoRotate={true}
                     />

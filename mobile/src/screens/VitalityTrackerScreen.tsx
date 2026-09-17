@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   Modal,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -39,6 +40,7 @@ export const VitalityTrackerScreen: React.FC<VitalityTrackerScreenProps> = ({ on
     vitalityData,
     toggleVitalityLumbarHeat,
     startFocusSprint,
+    stopFocusSprint,
     logHydrationSip,
   } = useCircle();
 
@@ -58,6 +60,23 @@ export const VitalityTrackerScreen: React.FC<VitalityTrackerScreenProps> = ({ on
   };
 
   const handleStartSprint = () => {
+    if (vitalityData.isFocusSprintActive) {
+      Alert.alert(
+        'End Focus Sprint?',
+        `You have ${vitalityData.focusSprintMinutesRemaining} minutes remaining in this deep focus session. Would you like to end this sprint now?`,
+        [
+          { text: 'Keep Focused', style: 'cancel' },
+          {
+            text: 'End Sprint',
+            style: 'destructive',
+            onPress: () => {
+              stopFocusSprint();
+            },
+          },
+        ]
+      );
+      return;
+    }
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}

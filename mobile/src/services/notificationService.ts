@@ -122,7 +122,8 @@ export function generateDailyEmotionalMessage(params: MessageParams): EmotionalS
 }
 
 export function isQuietHoursActive(): boolean {
-  const hour = new Date().getHours();
-  // Quiet hours: 22:00 (10 PM) to 07:30 (7:30 AM)
-  return hour >= 22 || hour < 7;
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  // Quiet hours: 22:00 (10 PM = 1320 mins) to 07:30 (7:30 AM = 450 mins)
+  return minutes >= 1320 || minutes < 450;
 }

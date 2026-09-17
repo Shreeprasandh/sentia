@@ -13,6 +13,7 @@ export const BOUTIQUE_PRODUCTS: BoutiqueProduct[] = [
     reviewsCount: 128,
     inStock: true,
     badge: 'FLAGSHIP',
+    bag3DModelId: 'bag-01',
     description:
       'The definitive smart travel companion. Integrated 4-point load cell weight sensing, magnetic water-seal zippers, biometric lock, and ambient BLE beacon locator.',
     specs: [

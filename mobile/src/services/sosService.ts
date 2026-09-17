@@ -9,6 +9,8 @@ export interface SOSDispatchResult {
   longitude: number;
   mapsUrl: string;
   guardianEmail: string;
+  guardianPhone?: string;
+  smsUrl?: string;
   message: string;
 }
 
@@ -63,6 +65,8 @@ export async function dispatchEmergencySOS(
   } catch {}
 
   const message = `EMERGENCY ALERT: ${userName}'s Sentia bag has triggered an urgent SOS beacon at ${timestamp}. Location: ${mapsUrl}. Primary bag battery: ${batteryLevel}%. Guardian notification dispatched to ${guardianEmail || 'Primary Guardian'}.`;
+  const cleanPhone = guardianPhone ? guardianPhone.replace(/[^\d+]/g, '') : '';
+  const smsUrl = cleanPhone ? `sms:${cleanPhone}?body=${encodeURIComponent(message)}` : undefined;
 
   return {
     success: true,
@@ -71,6 +75,8 @@ export async function dispatchEmergencySOS(
     longitude: lng,
     mapsUrl,
     guardianEmail,
+    guardianPhone: cleanPhone,
+    smsUrl,
     message,
   };
 }

@@ -6,6 +6,47 @@ export interface LocationAddressResult {
   error?: string;
 }
 
+export interface CoordinatesResult {
+  success: boolean;
+  latitude?: number;
+  longitude?: number;
+  error?: string;
+}
+
+/**
+ * Retrieve current device GPS coordinates with balanced accuracy.
+ */
+export async function getCurrentCoordinates(): Promise<CoordinatesResult> {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      return {
+        success: false,
+        latitude: 12.9716,
+        longitude: 77.5946,
+        error: 'Location permission not granted. Falling back to default coordinates.',
+      };
+    }
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    return {
+      success: true,
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      latitude: 12.9716,
+      longitude: 77.5946,
+      error: err?.message || 'Failed to obtain device GPS coordinates.',
+    };
+  }
+}
+
 /**
  * Request location permission, retrieve current GPS coordinates,
  * and reverse geocode into a structured, human-readable address line.

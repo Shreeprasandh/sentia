@@ -64,6 +64,14 @@ const CATALOG_MODELS: BagCatalogModel[] = [
     image: require('../../assets/brand/image3.png'),
     description: 'Compact evening luxury silhouette with discreet anti-theft gyro',
   },
+  {
+    id: 'bag-04',
+    name: 'Smart Commuter Sling',
+    model: 'Model SLG-04 • Aerodynamic Carbon',
+    colorName: 'Obsidian Carbon',
+    image: require('../../assets/brand/image5.png'),
+    description: 'Ultra-light aerodynamic sling with rapid-access magnetic holster & BLE beacon',
+  },
 ];
 
 type PairingStep = 'select_model' | 'scanning' | 'found' | 'bonding' | 'success';

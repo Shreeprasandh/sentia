@@ -136,7 +136,7 @@ export interface UserProfile {
   created_at: string;
 }
 
-export type DeviceRole = 'primary' | 'secondary' | 'tertiary';
+export type DeviceRole = 'primary' | 'secondary' | 'tertiary' | 'quaternary';
 
 export interface MultiDeviceBag {
   id: string;
@@ -218,6 +218,7 @@ export interface BoutiqueProduct {
   reviewsCount: number;
   inStock: boolean;
   badge?: string;
+  bag3DModelId?: string;
   description: string;
   specs: { label: string; value: string }[];
   howToUseSteps: string[];

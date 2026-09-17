@@ -49,6 +49,7 @@ import { WallCalendarModal } from '../components/WallCalendarModal';
 import { WidgetStudioModal } from '../components/WidgetStudioModal';
 import { useCircle } from '../context/CircleContext';
 import { getSmartWeather } from '../services/weather';
+import { getCurrentCoordinates } from '../services/locationService';
 import { WeatherData, BagTelemetry } from '../types';
 
 interface DashboardScreenProps {
@@ -115,9 +116,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 20
   ) + 8;
 
-  // Load weather on mount with 45-minute cache defense
+  // Load weather on mount with dynamic GPS coordinates and 45-minute cache defense
   useEffect(() => {
-    getSmartWeather().then(setWeather);
+    const fetchWeather = async () => {
+      const coords = await getCurrentCoordinates();
+      const w = await getSmartWeather(coords.latitude || 12.9716, coords.longitude || 77.5946);
+      setWeather(w);
+    };
+    fetchWeather();
   }, []);
 
   const handleRefresh = async () => {
@@ -125,7 +131,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
-    const updatedWeather = await getSmartWeather(13.0827, 80.2707, true);
+    const coords = await getCurrentCoordinates();
+    const updatedWeather = await getSmartWeather(coords.latitude || 12.9716, coords.longitude || 77.5946, true);
     setWeather(updatedWeather);
     setRefreshing(false);
   };
