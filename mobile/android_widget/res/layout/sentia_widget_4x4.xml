@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_4x4_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_cream_bg"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <!-- Top Header: Brand & Voice Trigger -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/widget_brand_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SENTIA"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#064E3B"
+            android:letterSpacing="0.1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/widget_brand_title"
+            android:text="AUTONOMOUS COMPANION"
+            android:textSize="7sp"
+            android:textColor="#64748B" />
+
+        <Button
+            android:id="@+id/widget_btn_talk"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:layout_alignParentEnd="true"
+            android:text="Talk"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/widget_button_accent"
+            android:paddingHorizontal="12dp" />
+    </RelativeLayout>
+
+    <!-- Main Content Split -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <!-- Left: Mascot & Emotion -->
+        <LinearLayout
+            android:layout_width="100dp"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/widget_avatar_4x4"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:src="@drawable/mascot_01_happy"
+                android:contentDescription="Senti Companion" />
+
+            <TextView
+                android:id="@+id/widget_quote_4x4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Pacing is steady, Sir."
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#1E293B"
+                android:gravity="center"
+                android:maxLines="2" />
+        </LinearLayout>
+
+        <!-- Right: Telemetry & Locks -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:layout_marginStart="8dp">
+
+            <!-- Row 1: Lock & Battery -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_telemetry_lock"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="TSA Locked"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="#064E3B"
+                    android:background="@drawable/widget_card_inner"
+                    android:padding="6dp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/widget_telemetry_battery"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="84% Pwr"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="#059669"
+                    android:background="@drawable/widget_card_inner"
+                    android:padding="6dp"
+                    android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Row 2: Weight & Lumbar Heat -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_telemetry_weight"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="3.4 kg Load"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B"
+                    android:background="@drawable/widget_card_inner"
+                    android:padding="6dp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/widget_telemetry_lumbar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="40°C Heat"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="#D97706"
+                    android:background="@drawable/widget_card_inner"
+                    android:padding="6dp"
+                    android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Row 3: Hydration Pacing -->
+            <ProgressBar
+                android:id="@+id/widget_hydration_bar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="6dp"
+                android:progress="70"
+                android:max="100"
+                android:progressDrawable="@drawable/widget_progress_emerald" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

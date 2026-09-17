@@ -68,6 +68,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [birthdate, setBirthdate] = useState('');
+  const [gender, setGender] = useState<'female' | 'male' | 'prefer_not_to_say'>('female');
   const [agreeTerms, setAgreeTerms] = useState(false);
 
   // Sign Up State - Step 2: Delivery & Emergency Protection
@@ -213,6 +214,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       phone: signUpPhone.trim() ? `${selectedDialCode} ${signUpPhone.trim()}` : `${selectedDialCode} 98401 23456`,
       birthday: birthdate.trim(),
       dateOfBirth: birthdate.trim(),
+      gender: gender,
       userCode: randomCode,
       handle: cleanHandle,
       shippingAddress: skipStep2
@@ -484,6 +486,45 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                   </View>
                   <Text style={styles.inputHelpText}>
                     Sentia hardware ecosystems require members to be at least 16 years of age in compliance with smart device lithium transport liability and digital safety laws.
+                  </Text>
+                </View>
+
+                {/* Wellness Telemetry Profile (Gender Customization) */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Wellness Telemetry Profile</Text>
+                  <View style={styles.genderRow}>
+                    {(
+                      [
+                        { key: 'female', label: 'Female', sub: 'Cycle Care' },
+                        { key: 'male', label: 'Male', sub: 'Vitality' },
+                        { key: 'prefer_not_to_say', label: 'Neutral', sub: 'Balanced' },
+                      ] as const
+                    ).map((item) => {
+                      const isSelected = gender === item.key;
+                      return (
+                        <TouchableOpacity
+                          key={item.key}
+                          style={[styles.genderCard, isSelected && styles.genderCardSelected]}
+                          onPress={() => {
+                            try {
+                              Haptics.selectionAsync();
+                            } catch {}
+                            setGender(item.key);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.genderCardTitle, isSelected && styles.genderCardTitleSelected]}>
+                            {item.label}
+                          </Text>
+                          <Text style={[styles.genderCardSub, isSelected && styles.genderCardSubSelected]}>
+                            {item.sub}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.inputHelpText}>
+                    Determines whether your hardware dashboard activates Cycle Care sync or Vitality & Spinal Ergonomics.
                   </Text>
                 </View>
 
@@ -915,6 +956,45 @@ const styles = StyleSheet.create({
   },
   eyeBtn: {
     padding: 6,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  genderCard: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.canvas,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderCardSelected: {
+    backgroundColor: Colors.cardAccent,
+    borderColor: Colors.primary,
+    borderWidth: 1.5,
+  },
+  genderCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  genderCardTitleSelected: {
+    color: Colors.primary,
+    fontWeight: '800',
+  },
+  genderCardSub: {
+    fontSize: 9,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+  },
+  genderCardSubSelected: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
   salutationChipsRow: {
     flexDirection: 'row',

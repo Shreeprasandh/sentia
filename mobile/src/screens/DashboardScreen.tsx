@@ -11,6 +11,7 @@ import {
   StatusBar,
   Platform,
   Modal,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -36,6 +37,8 @@ import {
   ArrowRight,
   BookOpen,
   X,
+  Activity,
+  Smartphone,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -44,6 +47,7 @@ import { SentiChatModal } from '../components/SentiChatModal';
 import { OnboardingTour } from '../components/OnboardingTour';
 import { DeviceCarousel } from '../components/DeviceCarousel';
 import { WallCalendarModal } from '../components/WallCalendarModal';
+import { WidgetStudioModal } from '../components/WidgetStudioModal';
 import { useCircle } from '../context/CircleContext';
 import { getSmartWeather } from '../services/weather';
 import { WeatherData, BagTelemetry } from '../types';
@@ -54,13 +58,38 @@ interface DashboardScreenProps {
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) => {
   const insets = useSafeAreaInsets();
-  const { calendarEvents, activeTelemetry, activeBag } = useCircle();
+  const {
+    calendarEvents,
+    activeTelemetry,
+    activeBag,
+    profile,
+    isSentiChatOpen,
+    sentiChatInitialMode,
+    openSentiChat,
+    closeSentiChat,
+    inAppWakeWordEnabled,
+  } = useCircle();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showStudyModal, setShowStudyModal] = useState(false);
+  const [isWidgetStudioOpen, setIsWidgetStudioOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
+
+  // In-App Foreground Wake Word "Hey Senti" listener (Active only on screen)
+  useEffect(() => {
+    if (!inAppWakeWordEnabled) return;
+
+    let isAppForeground = AppState.currentState === 'active';
+    const sub = AppState.addEventListener('change', (nextState) => {
+      isAppForeground = nextState === 'active';
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [inAppWakeWordEnabled]);
 
   // Dynamic Senti emotion and anomaly awareness reacting to live hardware state
   const { sentiMood, sentiSpeech } = useMemo(() => {
@@ -135,6 +164,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             {calendarEvents.length > 0 && (
               <View style={styles.calendarDotBadge} />
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.calendarIconBtn}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              setIsWidgetStudioOpen(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Smartphone size={17} color={Colors.primary} />
           </TouchableOpacity>
 
           <SentiCompanion
@@ -384,20 +426,33 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             <Text style={styles.actionSubtitle}>10 Custom packing presets</Text>
           </TouchableOpacity>
 
-          {/* Cycle Care */}
+          {/* Cycle Care OR Vitality & Peak Focus */}
           <TouchableOpacity
             style={styles.actionCard}
             onPress={() => onNavigate('cycle')}
             activeOpacity={0.85}
           >
-            <View style={[styles.actionIconBadge, { backgroundColor: '#FCE7F3' }]}>
-              <Sparkles size={22} color="#9D174D" />
+            <View
+              style={[
+                styles.actionIconBadge,
+                { backgroundColor: profile.gender === 'male' ? '#ECFDF5' : '#FCE7F3' },
+              ]}
+            >
+              {profile.gender === 'male' ? (
+                <Activity size={22} color="#065F46" />
+              ) : (
+                <Sparkles size={22} color="#9D174D" />
+              )}
             </View>
-            <Text style={styles.actionTitle}>Cycle Care Sync</Text>
-            <Text style={styles.actionSubtitle}>40°C Lumbar warmth & rhythm</Text>
+            <Text style={styles.actionTitle}>
+              {profile.gender === 'male' ? 'Vitality & Focus' : 'Cycle Care Sync'}
+            </Text>
+            <Text style={styles.actionSubtitle}>
+              {profile.gender === 'male' ? 'Spinal load & 40°C recovery' : '40°C Lumbar warmth & rhythm'}
+            </Text>
           </TouchableOpacity>
 
-          {/* Sentia Circle */}
+          {/* Social Circle */}
           <TouchableOpacity
             style={styles.actionCard}
             onPress={() => onNavigate('circle')}
@@ -406,8 +461,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             <View style={[styles.actionIconBadge, { backgroundColor: '#FAF3E7' }]}>
               <Users size={22} color={Colors.cognacAmber} />
             </View>
-            <Text style={styles.actionTitle}>Sentia Circle</Text>
-            <Text style={styles.actionSubtitle}>Friends mode, radar & tribes</Text>
+            <Text style={styles.actionTitle}>Social Circle</Text>
+            <Text style={styles.actionSubtitle}>Verified friends, radar & pods</Text>
           </TouchableOpacity>
 
           {/* Boutique */}
@@ -460,8 +515,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
 
       {/* Senti AI Chat Sheet Modal */}
       <SentiChatModal
-        visible={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
+        visible={isChatOpen || isSentiChatOpen}
+        onClose={() => {
+          setIsChatOpen(false);
+          closeSentiChat();
+        }}
+        initialMode={sentiChatInitialMode}
         onNavigateAction={(route) => onNavigate(route)}
       />
 
@@ -553,6 +612,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           </View>
         </View>
       </Modal>
+
+      {/* Android Home Screen Widget Studio & Living Preview */}
+      <WidgetStudioModal
+        visible={isWidgetStudioOpen}
+        onClose={() => setIsWidgetStudioOpen(false)}
+        onLaunchVoice={() => openSentiChat('voice')}
+      />
     </View>
   );
 };

@@ -23,6 +23,7 @@ import {
   Users,
   Check,
   Radio,
+  UserPlus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -43,24 +44,36 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
   tribe,
   onClose,
 }) => {
-  const { toggleGroupGearPacked, addGroupGearItem, removeGroupGearItem, profile } = useCircle();
+  const {
+    toggleGroupGearPacked,
+    addGroupGearItem,
+    removeGroupGearItem,
+    profile,
+    friends,
+    groups,
+    addMembersToGroup,
+  } = useCircle();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newCategory, setNewCategory] = useState('Electronics');
   const [assignedTo, setAssignedTo] = useState('You');
 
-  if (!tribe) return null;
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
 
-  const packedCount = tribe.gearChecklist.filter((g) => g.isPacked).length;
-  const totalGear = tribe.gearChecklist.length;
+  if (!tribe) return null;
+  const activeTribe = groups.find((g) => g.id === tribe.id) || tribe;
+
+  const packedCount = activeTribe.gearChecklist.filter((g) => g.isPacked).length;
+  const totalGear = activeTribe.gearChecklist.length;
   const packedPct = totalGear > 0 ? Math.round((packedCount / totalGear) * 100) : 100;
 
   const handleTogglePacked = (itemId: string) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
-    toggleGroupGearPacked(tribe.id, itemId);
+    toggleGroupGearPacked(activeTribe.id, itemId);
   };
 
   const handleRemoveItem = (itemId: string, title: string) => {
@@ -73,7 +86,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
-            removeGroupGearItem(tribe.id, itemId);
+            removeGroupGearItem(activeTribe.id, itemId);
           },
         },
       ]
@@ -85,7 +98,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
       Alert.alert('Title Required', 'Please enter an item title for the manifest.');
       return;
     }
-    addGroupGearItem(tribe.id, newItemTitle.trim(), newCategory, assignedTo);
+    addGroupGearItem(activeTribe.id, newItemTitle.trim(), newCategory, assignedTo);
     setNewItemTitle('');
     setShowAddForm(false);
     try {
@@ -93,7 +106,36 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
     } catch {}
   };
 
-  const memberOptions = ['You', ...tribe.members.map((m) => m.name)];
+  const memberOptions = ['You', ...activeTribe.members.map((m) => m.name)];
+
+  const existingMemberIds = new Set(activeTribe.members.map((m) => m.id));
+  const availableFriends = friends.filter((f) => !existingMemberIds.has(f.id));
+  const maxCanAdd = Math.max(0, 10 - (activeTribe.members.length + 1));
+
+  const handleToggleFriend = (friendId: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    if (selectedFriendIds.includes(friendId)) {
+      setSelectedFriendIds(selectedFriendIds.filter((id) => id !== friendId));
+    } else {
+      if (selectedFriendIds.length >= maxCanAdd) {
+        Alert.alert('Pod Limit Reached', 'This expedition pod can hold at most 10 companions total.');
+        return;
+      }
+      setSelectedFriendIds([...selectedFriendIds, friendId]);
+    }
+  };
+
+  const handleConfirmAddFriends = () => {
+    if (selectedFriendIds.length === 0) return;
+    addMembersToGroup(activeTribe.id, selectedFriendIds);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    setShowAddMemberModal(false);
+    setSelectedFriendIds([]);
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -103,10 +145,10 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerTitleGroup}>
               <View style={styles.badgeRow}>
-                <View style={[styles.tribeColorPip, { backgroundColor: tribe.accentColor }]} />
+                <View style={[styles.tribeColorPip, { backgroundColor: activeTribe.accentColor }]} />
                 <Text style={styles.headerBadge}>EXPEDITION POD • 2-10 MEMBERS</Text>
               </View>
-              <Text style={styles.headerTitle}>{tribe.name}</Text>
+              <Text style={styles.headerTitle}>{activeTribe.name}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.8}>
               <X size={20} color={Colors.textPrimary} />
@@ -223,7 +265,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
               )}
 
               {/* Gear Items List */}
-              {tribe.gearChecklist.length === 0 ? (
+              {activeTribe.gearChecklist.length === 0 ? (
                 <View style={styles.emptyGearContainer}>
                   <Text style={styles.emptyGearText}>No shared gear registered yet.</Text>
                   <Text style={styles.emptyGearSubText}>
@@ -231,7 +273,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
                   </Text>
                 </View>
               ) : (
-                tribe.gearChecklist.map((item) => (
+                activeTribe.gearChecklist.map((item) => (
                   <View key={item.id} style={styles.gearItemRow}>
                     <TouchableOpacity
                       style={[styles.checkboxCircle, item.isPacked && styles.checkboxCircleChecked]}
@@ -270,8 +312,21 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionTitleGroup}>
                   <Users size={16} color={Colors.cognacAmber} />
-                  <Text style={styles.sectionTitle}>Pod Roster ({tribe.members.length + 1} of 10)</Text>
+                  <Text style={styles.sectionTitle}>Pod Roster ({activeTribe.members.length + 1} of 10)</Text>
                 </View>
+                {maxCanAdd > 0 && availableFriends.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.addMemberBtn}
+                    onPress={() => {
+                      setSelectedFriendIds([]);
+                      setShowAddMemberModal(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <UserPlus size={14} color={Colors.cognacAmber} />
+                    <Text style={styles.addMemberBtnText}>Add Companion</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Self / Leader Entry */}
@@ -295,7 +350,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
               </View>
 
               {/* Companions Entries */}
-              {tribe.members.map((member) => (
+              {activeTribe.members.map((member) => (
                 <View key={member.id} style={styles.rosterCard}>
                   <View style={styles.rosterAvatarWrapper}>
                     <Image
@@ -350,8 +405,8 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
                 </View>
               </View>
 
-              {tribe.safeArrivals && tribe.safeArrivals.length > 0 ? (
-                tribe.safeArrivals.map((log) => (
+              {activeTribe.safeArrivals && activeTribe.safeArrivals.length > 0 ? (
+                activeTribe.safeArrivals.map((log) => (
                   <View key={log.id} style={styles.arrivalRow}>
                     <CheckCircle2 size={16} color="#059669" />
                     <View style={styles.arrivalInfo}>
@@ -380,6 +435,88 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
               </Text>
             </View>
           </ScrollView>
+
+          {/* Sub-Modal: Add Companions to Tribe */}
+          <Modal
+            visible={showAddMemberModal}
+            animationType="fade"
+            transparent
+            onRequestClose={() => setShowAddMemberModal(false)}
+          >
+            <View style={styles.subModalOverlay}>
+              <View style={styles.subModalCard}>
+                <View style={styles.subModalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.subModalTitle}>Add Companions</Text>
+                    <Text style={styles.subModalSub}>
+                      Expand {activeTribe.name} ({maxCanAdd} spot{maxCanAdd === 1 ? '' : 's'} open)
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setShowAddMemberModal(false)}
+                    style={styles.subModalCloseBtn}
+                  >
+                    <X size={18} color={Colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+
+                {availableFriends.length === 0 ? (
+                  <View style={styles.emptyFriendsContainer}>
+                    <Text style={styles.emptyFriendsTitle}>No Available Companions</Text>
+                    <Text style={styles.emptyFriendsSub}>
+                      All companions in your Social Circle have already joined this expedition pod or reached the 10-companion limit.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <ScrollView style={styles.friendListScroll} showsVerticalScrollIndicator={false}>
+                      {availableFriends.map((friend) => {
+                        const isSelected = selectedFriendIds.includes(friend.id);
+                        return (
+                          <TouchableOpacity
+                            key={friend.id}
+                            style={[styles.friendRow, isSelected && styles.friendRowSelected]}
+                            onPress={() => handleToggleFriend(friend.id)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[styles.miniCheckCircle, isSelected && styles.miniCheckCircleSelected]}>
+                              {isSelected && <Check size={12} color="#FAF6EE" />}
+                            </View>
+                            <Image
+                              source={SentiAvatars[friend.avatarMood] || SentiAvatars['01_happy']}
+                              style={styles.friendAvatarSmall}
+                              resizeMode="contain"
+                            />
+                            <View style={styles.friendRowDetails}>
+                              <Text style={styles.friendRowName}>{friend.name}</Text>
+                              <Text style={styles.friendRowModel}>{friend.bagModel}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.confirmAddBtn,
+                        selectedFriendIds.length === 0 && styles.confirmAddBtnDisabled,
+                      ]}
+                      disabled={selectedFriendIds.length === 0}
+                      onPress={handleConfirmAddFriends}
+                      activeOpacity={0.85}
+                    >
+                      <Check size={15} color="#FAF6EE" />
+                      <Text style={styles.confirmAddBtnText}>
+                        {selectedFriendIds.length > 0
+                          ? `Add ${selectedFriendIds.length} Companion${selectedFriendIds.length === 1 ? '' : 's'} to Pod`
+                          : 'Select Companions to Add'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          </Modal>
         </View>
       </View>
     </Modal>
@@ -885,5 +1022,150 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     flex: 1,
     lineHeight: 15,
+  },
+  addMemberBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAF3E7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  addMemberBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.cognacAmber,
+  },
+  subModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  subModalCard: {
+    backgroundColor: '#FAF3E7',
+    borderRadius: 24,
+    width: '100%',
+    maxHeight: '80%',
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+    ...Shadows.subtle,
+  },
+  subModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.md,
+  },
+  subModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  subModalSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  subModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  emptyFriendsContainer: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+  },
+  emptyFriendsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 6,
+  },
+  emptyFriendsSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: Spacing.md,
+  },
+  friendListScroll: {
+    maxHeight: 280,
+    marginBottom: Spacing.md,
+  },
+  friendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.sm,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+    marginBottom: 8,
+  },
+  friendRowSelected: {
+    borderColor: Colors.cognacAmber,
+    backgroundColor: '#FFF9F0',
+  },
+  miniCheckCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#D1C2A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  miniCheckCircleSelected: {
+    backgroundColor: Colors.cognacAmber,
+    borderColor: Colors.cognacAmber,
+  },
+  friendAvatarSmall: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F5EADC',
+    marginRight: 10,
+  },
+  friendRowDetails: {
+    flex: 1,
+  },
+  friendRowName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  friendRowModel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+  },
+  confirmAddBtn: {
+    backgroundColor: Colors.cognacAmber,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: BorderRadius.pill,
+    gap: 8,
+  },
+  confirmAddBtnDisabled: {
+    backgroundColor: '#D1C2A5',
+    opacity: 0.6,
+  },
+  confirmAddBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FAF6EE',
   },
 });

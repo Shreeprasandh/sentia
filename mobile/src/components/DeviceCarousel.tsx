@@ -22,12 +22,15 @@ import {
   Power,
   Plus,
   Trash2,
+  Box,
+  Image as ImageIcon,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { useCircle } from '../context/CircleContext';
 import { MultiDeviceBag } from '../types';
 import { PairDeviceModal } from './PairDeviceModal';
+import { Sentia3DViewer } from './Sentia3DViewer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
@@ -36,6 +39,7 @@ export const DeviceCarousel: React.FC = () => {
   const { bags, activeBagId, setActiveBagId, setPrimaryBag, toggleBagConnection, removeBag, toggleBagLock } = useCircle();
   const [activeIndex, setActiveIndex] = useState(0);
   const [showPairModal, setShowPairModal] = useState(false);
+  const [viewModeMap, setViewModeMap] = useState<Record<string, '2d' | '3d'>>({});
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -163,9 +167,44 @@ export const DeviceCarousel: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* Bag Visual */}
+        {/* Bag Visual & Floating 2D/3D Mode Badge */}
         <View style={styles.visualWrapper}>
-          <Image source={item.image} style={styles.bagImage} resizeMode="contain" />
+          <TouchableOpacity
+            style={styles.floating3DBadge}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              setViewModeMap((prev) => ({
+                ...prev,
+                [item.id]: (prev[item.id] || '2d') === '2d' ? '3d' : '2d',
+              }));
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel={
+              (viewModeMap[item.id] || '2d') === '3d'
+                ? 'Switch to 2D studio photo'
+                : 'Switch to 3D interactive model'
+            }
+          >
+            {(viewModeMap[item.id] || '2d') === '3d' ? (
+              <>
+                <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                <Text style={styles.floatingBadgeText}>2D</Text>
+              </>
+            ) : (
+              <>
+                <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                <Text style={styles.floatingBadgeText}>3D</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {viewModeMap[item.id] === '3d' ? (
+            <Sentia3DViewer bagId={item.id} height={180} autoRotate={true} />
+          ) : (
+            <Image source={item.image} style={styles.bagImage} resizeMode="contain" />
+          )}
         </View>
 
         {/* Telemetry Row */}
@@ -388,12 +427,41 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   visualWrapper: {
+    position: 'relative',
     alignItems: 'center',
-    marginVertical: Spacing.md,
+    justifyContent: 'center',
+    marginVertical: Spacing.xs,
+    width: '100%',
+    minHeight: 175,
+  },
+  floating3DBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 6,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(250, 246, 238, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(6, 78, 59, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    shadowColor: '#064E3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  floatingBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 0.5,
   },
   bagImage: {
     width: '100%',
-    height: 165,
+    height: 170,
   },
   telemetryRow: {
     flexDirection: 'row',

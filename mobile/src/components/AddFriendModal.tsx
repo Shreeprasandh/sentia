@@ -28,7 +28,9 @@ import {
   RotateCw,
   Search,
   Wifi,
+  Camera,
 } from 'lucide-react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import QRCode from 'react-native-qrcode-svg';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -91,6 +93,27 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectedIds, setConnectedIds] = useState<string[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (scanned || !data) return;
+    setScanned(true);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+
+    let code = data.trim();
+    if (code.includes('sentia://invite/')) {
+      code = code.replace('sentia://invite/', '').trim();
+    }
+    const success = addFriendByCode(code);
+    if (success) {
+      onClose();
+    } else {
+      setTimeout(() => setScanned(false), 2000);
+    }
+  };
 
   // Radar Pulse Animation
   const radarPulse = useRef(new Animated.Value(0)).current;
@@ -363,8 +386,35 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
           {/* Tab 2: SCAN QR (Camera Viewfinder + Manual Code) */}
           {activeTab === 'scan' && (
             <View style={styles.tabContent}>
-              {/* Viewfinder Reticle */}
+              {/* Live Camera Viewfinder Reticle */}
               <View style={styles.viewfinderWrapper}>
+                {permission?.granted ? (
+                  <CameraView
+                    style={StyleSheet.absoluteFill}
+                    facing="back"
+                    barcodeScannerSettings={{
+                      barcodeTypes: ['qr'],
+                    }}
+                    onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+                  />
+                ) : (
+                  <View style={styles.cameraPermissionPrompt}>
+                    <Camera size={28} color={Colors.primary} style={{ marginBottom: 6 }} />
+                    <Text style={styles.cameraPermTitle}>Camera Access Required</Text>
+                    <Text style={styles.cameraPermSub}>
+                      Allow camera access to scan Sentia invite QR codes directly.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.cameraPermBtn}
+                      onPress={requestPermission}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.cameraPermBtnText}>Enable Camera</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Viewfinder Reticle with strict overflow hidden boundaries */}
                 <View style={styles.viewfinder}>
                   {/* Four Corner Accents */}
                   <View style={[styles.corner, styles.cornerTL]} />
@@ -372,7 +422,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                   <View style={[styles.corner, styles.cornerBL]} />
                   <View style={[styles.corner, styles.cornerBR]} />
 
-                  {/* Animated Laser Scanning Line */}
+                  {/* Animated Laser Scanning Line strictly bounded between 4 and 172 */}
                   <Animated.View
                     style={[
                       styles.laserLine,
@@ -381,7 +431,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                           {
                             translateY: laserSweep.interpolate({
                               inputRange: [0, 1],
-                              outputRange: [0, 180],
+                              outputRange: [4, 172],
                             }),
                           },
                         ],
@@ -389,10 +439,12 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                     ]}
                   />
 
-                  <View style={styles.viewfinderCenter}>
-                    <ScanLine size={36} color="rgba(255,255,255,0.4)" />
-                    <Text style={styles.viewfinderHelp}>Align QR code inside frame</Text>
-                  </View>
+                  {!permission?.granted && (
+                    <View style={styles.viewfinderCenter}>
+                      <ScanLine size={32} color="rgba(255,255,255,0.4)" />
+                      <Text style={styles.viewfinderHelp}>Align QR code inside frame</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -727,15 +779,48 @@ const styles = StyleSheet.create({
     height: 220,
     backgroundColor: '#0F1F1A',
     borderRadius: 24,
-    padding: 16,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
+    position: 'relative',
+  },
+  cameraPermissionPrompt: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  cameraPermTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FAF6EE',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  cameraPermSub: {
+    fontSize: 10,
+    color: 'rgba(250,246,238,0.7)',
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 14,
+  },
+  cameraPermBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.pill,
+    backgroundColor: Colors.primary,
+  },
+  cameraPermBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FAF6EE',
   },
   viewfinder: {
     width: 180,
     height: 180,
     position: 'relative',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

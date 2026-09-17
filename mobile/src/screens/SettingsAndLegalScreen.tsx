@@ -34,11 +34,17 @@ import {
   AlertTriangle,
   ChevronDown,
   Navigation,
+  Heart,
+  Mic,
+  Info,
+  Sparkles,
+  Smartphone,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { useCircle } from '../context/CircleContext';
 import { CountryCodePickerModal } from '../components/CountryCodePickerModal';
+import { WidgetStudioModal } from '../components/WidgetStudioModal';
 import { detectCurrentAddress } from '../services/locationService';
 
 interface SettingsAndLegalScreenProps {
@@ -47,11 +53,23 @@ interface SettingsAndLegalScreenProps {
 
 export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, signOut, triggerEmergencySOS } = useCircle();
+  const {
+    profile,
+    updateProfile,
+    signOut,
+    triggerEmergencySOS,
+    emotionalSupportNotifications,
+    toggleEmotionalSupportNotifications,
+    inAppWakeWordEnabled,
+    toggleInAppWakeWord,
+  } = useCircle();
 
   const [fullName, setFullName] = useState(profile.fullName || 'Shree Prasandh');
   const [salutation, setSalutation] = useState(profile.salutation || 'Sir');
   const [birthday, setBirthday] = useState(profile.birthday || profile.dateOfBirth || '2001-08-14');
+  const [gender, setGender] = useState<'female' | 'male' | 'non_binary' | 'prefer_not_to_say'>(
+    profile.gender || 'prefer_not_to_say'
+  );
   const [shippingAddress, setShippingAddress] = useState(profile.shippingAddress || '');
 
   // Parse dial code and raw phone number
@@ -73,7 +91,9 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
   const [showPassword, setShowPassword] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
+  const [careModalVisible, setCareModalVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [widgetStudioVisible, setWidgetStudioVisible] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
 
@@ -110,10 +130,11 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
       guardianName: guardianName.trim(),
       guardianPhone: guardianPhone.trim(),
       guardianEmail: guardianEmail.trim(),
+      gender: gender,
     });
     Alert.alert(
       'Profile Updated',
-      'Your identity, birthday, shipping address, and emergency guardian details have been saved securely.'
+      'Your identity, telemetry profile, shipping address, and emergency guardian details have been saved securely.'
     );
   };
 
@@ -284,6 +305,45 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
             </View>
           </View>
 
+          {/* Wellness Telemetry Profile (Gender Customization) */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Wellness Telemetry Profile</Text>
+            <View style={styles.genderRow}>
+              {(
+                [
+                  { key: 'female', label: 'Female', sub: 'Cycle Care' },
+                  { key: 'male', label: 'Male', sub: 'Vitality & Focus' },
+                  { key: 'prefer_not_to_say', label: 'Neutral', sub: 'Balanced' },
+                ] as const
+              ).map((item) => {
+                const isSelected = gender === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[styles.genderCard, isSelected && styles.genderCardSelected]}
+                    onPress={() => {
+                      try {
+                        Haptics.selectionAsync();
+                      } catch {}
+                      setGender(item.key);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.genderCardTitle, isSelected && styles.genderCardTitleSelected]}>
+                      {item.label}
+                    </Text>
+                    <Text style={[styles.genderCardSub, isSelected && styles.genderCardSubSelected]}>
+                      {item.sub}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.inputHelpText}>
+              Configures the hardware dashboard between Cycle Care and Vitality & Spinal Ergonomics.
+            </Text>
+          </View>
+
           {/* Shipping Address */}
           <View style={styles.inputGroup}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -402,6 +462,124 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           >
             <Save size={16} color="#FAF6EE" />
             <Text style={styles.saveProfileButtonText}>Save Profile & Address Details</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Emotional Support & Senti Intelligence */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeader}>Emotional Support & Senti Intelligence</Text>
+          <TouchableOpacity
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              setCareModalVisible(true);
+            }}
+            style={styles.headerInfoBtn}
+            activeOpacity={0.7}
+          >
+            <Info size={15} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          {/* Master Toggle: Emotional Support & Daily Care */}
+          <TouchableOpacity
+            style={styles.settingToggleRow}
+            onPress={() => {
+              try {
+                Haptics.selectionAsync();
+              } catch {}
+              toggleEmotionalSupportNotifications();
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.settingToggleLeft}>
+              <View style={styles.settingIconBadge}>
+                <Heart size={18} color={Colors.primary} />
+              </View>
+              <View style={styles.settingToggleTextCol}>
+                <Text style={styles.settingToggleTitle}>Emotional Support & Daily Care</Text>
+                <Text style={styles.settingToggleDesc}>
+                  Gentle check-ins, hydration pacing, and evening wind-down messages (max 2/day, quiet hours 22:00-07:30).
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.toggleSwitch,
+                emotionalSupportNotifications ? styles.toggleSwitchOn : styles.toggleSwitchOff,
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  emotionalSupportNotifications ? styles.toggleThumbOn : styles.toggleThumbOff,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Master Toggle: In-App "Hey Senti" Wake Word */}
+          <TouchableOpacity
+            style={[styles.settingToggleRow, { borderBottomWidth: 0, marginTop: Spacing.sm }]}
+            onPress={() => {
+              try {
+                Haptics.selectionAsync();
+              } catch {}
+              toggleInAppWakeWord();
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.settingToggleLeft}>
+              <View style={styles.settingIconBadge}>
+                <Mic size={18} color={Colors.primary} />
+              </View>
+              <View style={styles.settingToggleTextCol}>
+                <Text style={styles.settingToggleTitle}>In-App "Hey Senti" Wake Word</Text>
+                <Text style={styles.settingToggleDesc}>
+                  Hands-free voice chat trigger while Sentia is open on screen. Pauses when app is closed to protect privacy and battery.
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.toggleSwitch,
+                inAppWakeWordEnabled ? styles.toggleSwitchOn : styles.toggleSwitchOff,
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  inAppWakeWordEnabled ? styles.toggleThumbOn : styles.toggleThumbOff,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Android Home Screen Widget Studio */}
+          <TouchableOpacity
+            style={[styles.settingToggleRow, { borderBottomWidth: 0, marginTop: Spacing.xs }]}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              setWidgetStudioVisible(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.settingToggleLeft}>
+              <View style={styles.settingIconBadge}>
+                <Smartphone size={18} color={Colors.primary} />
+              </View>
+              <View style={styles.settingToggleTextCol}>
+                <Text style={styles.settingToggleTitle}>Android Home Screen Widget Studio</Text>
+                <Text style={styles.settingToggleDesc}>
+                  Preview & configure 2x2 companion aura and 4x4 command pod on your phone launcher.
+                </Text>
+              </View>
+            </View>
+            <ExternalLink size={16} color={Colors.textTertiary} />
           </TouchableOpacity>
         </View>
 
@@ -634,6 +812,40 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
         </View>
       </Modal>
 
+      {/* Emotional Support & Daily Care Architecture Modal */}
+      <Modal visible={careModalVisible} animationType="slide" transparent>
+        <View style={styles.legalModalOverlay}>
+          <View style={styles.legalModalContent}>
+            <Text style={styles.modalTitle}>Daily Care & Senti Intelligence</Text>
+            <Text style={styles.modalSubtitle}>Empathetic companion pacing and privacy protocols</Text>
+            <ScrollView style={styles.legalScroll}>
+              <Text style={styles.legalHeading}>1. Pacing & Attention Respect</Text>
+              <Text style={styles.legalBody}>
+                To eliminate notification fatigue, Sentia strictly enforces a maximum cap of two emotional check-ins per 24-hour window. Messages are sent only during moments of physical transition or rest.
+              </Text>
+              <Text style={styles.legalHeading}>2. Sacred Quiet Hours</Text>
+              <Text style={styles.legalBody}>
+                From 22:00 to 07:30 local device time, Sentia enters silent companion mode. No proactive notifications are ever dispatched during your rest window.
+              </Text>
+              <Text style={styles.legalHeading}>3. Contextual Hardware Sync</Text>
+              <Text style={styles.legalBody}>
+                Care prompts synchronize with real bag sensor telemetry: hydration reminders based on movement and weather telemetry, posture resets during heavy carry periods, and soothing lumbar warmth reminders during high-stress hours or cycle phases.
+              </Text>
+              <Text style={styles.legalHeading}>4. In-App Hands-Free Voice</Text>
+              <Text style={styles.legalBody}>
+                When enabled, Sentia listens for the "Hey Senti" wake word only while the app is actively on your screen. The audio stream never records or transmits ambient conversations to third parties and immediately suspends when the app is minimized.
+              </Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setCareModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <CountryCodePickerModal
         visible={showCountryPicker}
         selectedCode={selectedDialCode}
@@ -642,6 +854,11 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           setSelectedCountryIso(item.iso);
         }}
         onClose={() => setShowCountryPicker(false)}
+      />
+
+      <WidgetStudioModal
+        visible={widgetStudioVisible}
+        onClose={() => setWidgetStudioVisible(false)}
       />
     </View>
   );
@@ -994,5 +1211,125 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     marginTop: 4,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  headerInfoBtn: {
+    padding: 6,
+    borderRadius: BorderRadius.pill,
+    backgroundColor: Colors.cardAccent,
+  },
+  settingToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.cardAccentBorder,
+  },
+  settingToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    marginRight: 14,
+  },
+  settingIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.cardAccent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  settingToggleTextCol: {
+    flex: 1,
+  },
+  settingToggleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  settingToggleDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: Colors.textSecondary,
+  },
+  toggleSwitch: {
+    width: 46,
+    height: 26,
+    borderRadius: 13,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleSwitchOn: {
+    backgroundColor: Colors.primary,
+  },
+  toggleSwitchOff: {
+    backgroundColor: '#D1D5DB',
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FAF6EE',
+  },
+  toggleThumbOn: {
+    alignSelf: 'flex-end',
+  },
+  toggleThumbOff: {
+    alignSelf: 'flex-start',
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  genderCard: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.canvas,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderCardSelected: {
+    backgroundColor: Colors.cardAccent,
+    borderColor: Colors.primary,
+    borderWidth: 1.5,
+  },
+  genderCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  genderCardTitleSelected: {
+    color: Colors.primary,
+    fontWeight: '800',
+  },
+  genderCardSub: {
+    fontSize: 9,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+  },
+  genderCardSubSelected: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  inputHelpText: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 4,
+    lineHeight: 15,
   },
 });

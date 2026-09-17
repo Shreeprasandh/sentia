@@ -12,6 +12,8 @@ import {
   Wifi,
   Flame,
   Volume2,
+  Box,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 const SUPABASE_URL = 'https://mlfkgcriezxzyapjixip.supabase.co';
@@ -25,6 +27,7 @@ interface BagModelDef {
   model: string;
   colorName: string;
   image: string;
+  modelGlb: string;
   role: 'primary' | 'secondary' | 'tertiary';
 }
 
@@ -35,6 +38,7 @@ const BAG_MODELS: BagModelDef[] = [
     model: 'Model EXP-01 • Carbon Weave',
     colorName: 'Imperial Emerald',
     image: '/image1.png',
+    modelGlb: '/models/sentia_exp01.glb',
     role: 'primary',
   },
   {
@@ -43,6 +47,7 @@ const BAG_MODELS: BagModelDef[] = [
     model: 'Model WKD-02 • Ballistic Canvas',
     colorName: 'Porcelain Sand',
     image: '/image4.png',
+    modelGlb: '/models/sentia_wkd02.glb',
     role: 'secondary',
   },
   {
@@ -51,6 +56,7 @@ const BAG_MODELS: BagModelDef[] = [
     model: 'Model CRB-03 • Saddle Tan',
     colorName: 'Cognac Saddle',
     image: '/image3.png',
+    modelGlb: '/models/sentia_crb03.glb',
     role: 'tertiary',
   },
 ];
@@ -160,6 +166,7 @@ export default function App() {
   const [activeBagId, setActiveBagId] = useState<string>('bag-01');
   const [hardwareMap, setHardwareMap] = useState<Record<string, BagHardwareState>>(INITIAL_HARDWARE_MAP);
   const [connected, setConnected] = useState(false);
+  const [twinViewMode, setTwinViewMode] = useState<'2d' | '3d'>('2d');
   const [lastLog, setLastLog] = useState<string>('Simulator initialized. Subscribing to Supabase Realtime channels...');
   const [receivedCommands, setReceivedCommands] = useState<string[]>([]);
   const [sosHolding, setSosHolding] = useState(false);
@@ -508,21 +515,83 @@ export default function App() {
             </button>
           </div>
 
-          {/* Bag Image with Simulated LED Smart Rim */}
+          {/* Bag Image / 3D Model with Simulated LED Smart Rim */}
           <div style={{
             position: 'relative',
             backgroundColor: '#FAF6EE',
             borderRadius: '20px',
-            padding: '24px',
+            padding: '24px 20px 36px 20px',
             textAlign: 'center',
             marginBottom: '24px',
             border: '1px solid #EEDCC0',
+            minHeight: '230px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-            <img
-              src={activeDef.image}
-              alt={activeDef.name}
-              style={{ maxHeight: '180px', margin: '0 auto', display: 'block', objectFit: 'contain' }}
-            />
+            {/* Floating 3D/2D Toggle Badge */}
+            <button
+              type="button"
+              onClick={() => setTwinViewMode((prev) => (prev === '2d' ? '3d' : '2d'))}
+              title={twinViewMode === '3d' ? 'Switch to 2D studio photo' : 'Switch to 3D interactive model'}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '14px',
+                zIndex: 10,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                backgroundColor: 'rgba(250, 246, 238, 0.94)',
+                border: '1px solid rgba(6, 78, 59, 0.16)',
+                padding: '5px 10px',
+                borderRadius: '999px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(6, 78, 59, 0.08)',
+                color: '#064E3B',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.4px',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                transition: 'all 0.18s ease',
+              }}
+            >
+              {twinViewMode === '3d' ? (
+                <>
+                  <ImageIcon size={12} color="#064E3B" />
+                  <span>2D</span>
+                </>
+              ) : (
+                <>
+                  <Box size={12} color="#064E3B" />
+                  <span>3D</span>
+                </>
+              )}
+            </button>
+
+            {twinViewMode === '3d' ? (
+              <model-viewer
+                key={activeDef.id}
+                src={activeDef.modelGlb}
+                camera-controls
+                auto-rotate
+                auto-rotate-delay="800"
+                rotation-per-second="18deg"
+                shadow-intensity="1.3"
+                shadow-softness="0.75"
+                exposure="1.08"
+                environment-image="neutral"
+                style={{ width: '100%', height: '210px', margin: '0 auto', display: 'block', backgroundColor: 'transparent' }}
+              />
+            ) : (
+              <img
+                src={activeDef.image}
+                alt={activeDef.name}
+                style={{ maxHeight: '185px', margin: '0 auto', display: 'block', objectFit: 'contain' }}
+              />
+            )}
 
             {/* Hardware Status Ribbons */}
             <div style={{

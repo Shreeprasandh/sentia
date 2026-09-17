@@ -8,6 +8,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { BagRadarScreen } from './src/screens/BagRadarScreen';
 import { EssentialsChecklistScreen } from './src/screens/EssentialsChecklistScreen';
 import { CycleTrackerScreen } from './src/screens/CycleTrackerScreen';
+import { VitalityTrackerScreen } from './src/screens/VitalityTrackerScreen';
 import { CircleScreen } from './src/screens/CircleScreen';
 import { ShopScreen } from './src/screens/ShopScreen';
 import { SettingsAndLegalScreen } from './src/screens/SettingsAndLegalScreen';
@@ -39,7 +40,7 @@ type NavTab = 'dashboard' | 'radar' | 'essentials' | 'cycle' | 'circle' | 'shop'
 
 function MainContent() {
   const insets = useSafeAreaInsets();
-  const { mode, isAuthenticated, showOnboardingTour, setShowOnboardingTour } = useCircle();
+  const { mode, isAuthenticated, showOnboardingTour, setShowOnboardingTour, profile } = useCircle();
   const [isStartingUp, setIsStartingUp] = useState<boolean>(true);
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
 
@@ -79,7 +80,13 @@ function MainContent() {
             {currentTab === 'dashboard' && <DashboardScreen onNavigate={(route) => setCurrentTab(route as NavTab)} />}
             {currentTab === 'radar' && <BagRadarScreen onBack={() => setCurrentTab('dashboard')} />}
             {currentTab === 'essentials' && <EssentialsChecklistScreen onBack={() => setCurrentTab('dashboard')} />}
-            {currentTab === 'cycle' && <CycleTrackerScreen onBack={() => setCurrentTab('dashboard')} />}
+            {currentTab === 'cycle' && (
+              profile.gender === 'male' ? (
+                <VitalityTrackerScreen onBack={() => setCurrentTab('dashboard')} />
+              ) : (
+                <CycleTrackerScreen onBack={() => setCurrentTab('dashboard')} />
+              )
+            )}
             {currentTab === 'circle' && <CircleScreen onBack={() => setCurrentTab('dashboard')} />}
             {currentTab === 'shop' && <ShopScreen onBack={() => setCurrentTab('dashboard')} />}
             {currentTab === 'settings' && <SettingsAndLegalScreen onBack={() => setCurrentTab('dashboard')} />}

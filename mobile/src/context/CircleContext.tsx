@@ -15,8 +15,10 @@ import {
   ChecklistPreset,
   CalendarEvent,
   CyclePhaseData,
+  VitalityFocusData,
   EssentialItem,
   BagTelemetry,
+  SentiChatMessage,
 } from '../types';
 import { dispatchEmergencySOS, SOSDispatchResult } from '../services/sosService';
 import { HardwareGateway } from '../services/hardwareGateway';
@@ -98,6 +100,25 @@ interface CircleContextType {
   syncCycleToBag: () => void;
   toggleLumbarHeat: () => void;
   logCycleSymptom: (symptom: string) => void;
+  // Emotional Support & In-App Wake Word
+  emotionalSupportNotifications: boolean;
+  toggleEmotionalSupportNotifications: () => void;
+  inAppWakeWordEnabled: boolean;
+  toggleInAppWakeWord: () => void;
+  // Senti Companion Global Controller
+  isSentiChatOpen: boolean;
+  sentiChatInitialMode: 'text' | 'voice';
+  openSentiChat: (mode?: 'text' | 'voice') => void;
+  closeSentiChat: () => void;
+  // Vitality & Peak Focus (Male / Ergonomic Wellness Counterpart)
+  vitalityData: VitalityFocusData;
+  toggleVitalityLumbarHeat: () => void;
+  startFocusSprint: (minutes?: number) => void;
+  logHydrationSip: (amountL?: number) => void;
+  addMembersToGroup: (groupId: string, friendIds: string[]) => void;
+  sentiMessages: SentiChatMessage[];
+  addSentiMessage: (msg: SentiChatMessage) => void;
+  clearSentiMessages: () => void;
 }
 
 const INITIAL_BAGS: MultiDeviceBag[] = [
@@ -132,6 +153,7 @@ const INITIAL_PROFILE: ExtendedProfile = {
   shippingAddress: '452 Belgravia Crescent, Suite 402, London SW1X 7PJ',
   birthday: '2001-08-14',
   dateOfBirth: '2001-08-14',
+  gender: 'male',
   avatarUri: undefined,
   guardianName: 'Aria Sterling',
   guardianPhone: '+1 (555) 902-3341',
@@ -479,6 +501,120 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [incomingRequests, setIncomingRequests] = useState<FriendContact[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [profile, setProfile] = useState<ExtendedProfile>(INITIAL_PROFILE);
+
+  // Emotional Support & In-App Wake Word
+  const [emotionalSupportNotifications, setEmotionalSupportNotifications] = useState<boolean>(true);
+  const [inAppWakeWordEnabled, setInAppWakeWordEnabled] = useState<boolean>(true);
+
+  // Senti Assistant Live Global Controller
+  const [isSentiChatOpen, setIsSentiChatOpen] = useState<boolean>(false);
+  const [sentiChatInitialMode, setSentiChatInitialMode] = useState<'text' | 'voice'>('text');
+
+  const openSentiChat = (mode: 'text' | 'voice' = 'text') => {
+    setSentiChatInitialMode(mode);
+    setIsSentiChatOpen(true);
+  };
+
+  const closeSentiChat = () => {
+    setIsSentiChatOpen(false);
+  };
+
+  // Persistent Senti AI Chat Messages across navigation and screen unmounts
+  const [sentiMessages, setSentiMessages] = useState<SentiChatMessage[]>([
+    {
+      id: 'welcome',
+      sender: 'senti',
+      text: "Hey there! I'm Senti, your companion and friend. What's on your mind today?",
+      mood: '01_happy',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
+  ]);
+
+  const addSentiMessage = (msg: SentiChatMessage) => {
+    setSentiMessages((prev) => [...prev, msg]);
+  };
+
+  const clearSentiMessages = () => {
+    setSentiMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        sender: 'senti',
+        text: "Chat cleared! I'm right here with you. What should we tackle next?",
+        mood: '01_happy',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+  };
+
+  const toggleEmotionalSupportNotifications = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    setEmotionalSupportNotifications((prev) => !prev);
+  };
+
+  const toggleInAppWakeWord = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    setInAppWakeWordEnabled((prev) => !prev);
+  };
+
+  // Vitality & Peak Focus (Male / Ergonomic Wellness Counterpart)
+  const [vitalityData, setVitalityData] = useState<VitalityFocusData>({
+    spinalLoadKg: 2.4,
+    recommendedMaxKg: 6.8, // 10% body weight standard
+    isPostureBalanced: true,
+    spinalLoadPct: 35,
+    dailyHydrationCurrentL: 1.8,
+    dailyHydrationTargetL: 3.0,
+    focusSprintMinutesRemaining: 45,
+    focusSprintTotalMinutes: 90,
+    isFocusSprintActive: false,
+    lumbarHeatActive: false,
+    lumbarHeatMinutesRemaining: 15,
+    energyStateText: 'Peak Ergonomic Vitality • Spinal Load Optimal',
+  });
+
+  const toggleVitalityLumbarHeat = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    setVitalityData((prev) => {
+      const nextActive = !prev.lumbarHeatActive;
+      HardwareGateway.sendCommand(activeBagId, nextActive ? 'HEAT_ON' : 'HEAT_OFF');
+      return {
+        ...prev,
+        lumbarHeatActive: nextActive,
+        lumbarHeatMinutesRemaining: nextActive ? 15 : 0,
+      };
+    });
+  };
+
+  const startFocusSprint = (minutes = 90) => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    setVitalityData((prev) => ({
+      ...prev,
+      isFocusSprintActive: true,
+      focusSprintTotalMinutes: minutes,
+      focusSprintMinutesRemaining: minutes,
+    }));
+  };
+
+  const logHydrationSip = (amountL = 0.25) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    setVitalityData((prev) => ({
+      ...prev,
+      dailyHydrationCurrentL: Math.min(
+        prev.dailyHydrationTargetL,
+        Number((prev.dailyHydrationCurrentL + amountL).toFixed(2))
+      ),
+    }));
+  };
 
   // Live Hardware Digital Twin Telemetry State (Zero Mock Data)
   const [activeTelemetry, setActiveTelemetry] = useState<BagTelemetry>({
@@ -1265,6 +1401,28 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return true;
   };
 
+  const addMembersToGroup = (groupId: string, friendIds: string[]) => {
+    const newCompanions = friends.filter((f) => friendIds.includes(f.id));
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === groupId) {
+          const existingIds = new Set(g.members.map((m) => m.id));
+          const filteredNew = newCompanions.filter((c) => !existingIds.has(c.id));
+          const updatedMembers = [...g.members, ...filteredNew].slice(0, 9);
+          return {
+            ...g,
+            members: updatedMembers,
+            memberCount: updatedMembers.length + 1,
+          };
+        }
+        return g;
+      })
+    );
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+  };
+
   const toggleGroupGearPacked = (groupId: string, itemId: string) => {
     setGroups((prev) =>
       prev.map((g) => {
@@ -1432,6 +1590,22 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         syncCycleToBag,
         toggleLumbarHeat,
         logCycleSymptom,
+        emotionalSupportNotifications,
+        toggleEmotionalSupportNotifications,
+        inAppWakeWordEnabled,
+        toggleInAppWakeWord,
+        isSentiChatOpen,
+        sentiChatInitialMode,
+        openSentiChat,
+        closeSentiChat,
+        vitalityData,
+        toggleVitalityLumbarHeat,
+        startFocusSprint,
+        logHydrationSip,
+        addMembersToGroup,
+        sentiMessages,
+        addSentiMessage,
+        clearSentiMessages,
       }}
     >
       {children}

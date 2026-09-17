@@ -34,7 +34,7 @@ import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { useCircle } from '../context/CircleContext';
 import { CalendarEvent } from '../types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface WallCalendarModalProps {
   visible: boolean;
@@ -42,18 +42,18 @@ interface WallCalendarModalProps {
 }
 
 const MONTH_IMAGES: Record<number, any> = {
-  0: require('../../assets/calendar/1.jpg'),
-  1: require('../../assets/calendar/2.jpg'),
-  2: require('../../assets/calendar/3.jpg'),
-  3: require('../../assets/calendar/4.jpg'),
-  4: require('../../assets/calendar/5.jpg'),
-  5: require('../../assets/calendar/6.jpg'),
-  6: require('../../assets/calendar/7.jpg'),
-  7: require('../../assets/calendar/8.jpg'),
-  8: require('../../assets/calendar/9.jpg'),
-  9: require('../../assets/calendar/10.jpg'),
-  10: require('../../assets/calendar/11.jpg'),
-  11: require('../../assets/calendar/12.jpg'),
+  0: require('../../assets/calendar/one.jpg'),
+  1: require('../../assets/calendar/two.jpg'),
+  2: require('../../assets/calendar/three.jpg'),
+  3: require('../../assets/calendar/four.jpg'),
+  4: require('../../assets/calendar/five.jpg'),
+  5: require('../../assets/calendar/six.jpg'),
+  6: require('../../assets/calendar/seven.jpg'),
+  7: require('../../assets/calendar/eight.jpg'),
+  8: require('../../assets/calendar/nine.jpg'),
+  9: require('../../assets/calendar/ten.jpg'),
+  10: require('../../assets/calendar/eleven.jpg'),
+  11: require('../../assets/calendar/twelve.jpg'),
 };
 
 const MONTH_NAMES = [
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   calendarContainer: {
     width: SCREEN_WIDTH * 0.94,
     maxWidth: 500,
-    maxHeight: '92%',
+    height: Math.min(SCREEN_HEIGHT * 0.90, 700),
     backgroundColor: Colors.canvasElevated,
     borderRadius: 24,
     borderWidth: 1.5,
@@ -667,6 +667,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    minHeight: 160,
     ...Shadows.card,
   },
   agendaHeader: {
@@ -803,6 +804,7 @@ const styles = StyleSheet.create({
   },
   taskList: {
     gap: 8,
+    minHeight: 80,
   },
   emptyAgendaText: {
     fontSize: 11,

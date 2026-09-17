@@ -11,14 +11,16 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  Pressable,
 } from 'react-native';
-import { X, Send, Sparkles, Mic, Volume2, VolumeX } from 'lucide-react-native';
+import { X, Send, Sparkles, Mic, MicOff, Volume2, VolumeX, Trash2, Waves } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { SentiChatMessage, SentiMood } from '../types';
 import { SentiAvatars } from '../assets/mascotMap';
 import { askSenti } from '../services/sentiAI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCircle } from '../context/CircleContext';
 import {
   speakSenti,
   stopSentiSpeech,
@@ -30,7 +32,17 @@ interface SentiChatModalProps {
   visible: boolean;
   onClose: () => void;
   onNavigateAction?: (route: string) => void;
+  initialMode?: 'text' | 'voice';
 }
+
+const normalizeRoute = (rawRoute: string): string => {
+  const clean = rawRoute.replace(/^\//, '').toLowerCase().trim();
+  if (clean === 'profile') return 'settings';
+  if (clean === 'support') return 'settings';
+  if (clean === 'vitality') return 'cycle';
+  if (clean === 'home') return 'dashboard';
+  return clean;
+};
 
 const QUICK_PROMPTS = [
   'How do I change my name?',
@@ -43,22 +55,17 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
   visible,
   onClose,
   onNavigateAction,
+  initialMode = 'text',
 }) => {
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState<SentiChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'senti',
-      text: "Hey there! I'm Senti, your bag's companion. What's on your mind today?",
-      mood: '01_happy',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const { sentiMessages, addSentiMessage, clearSentiMessages } = useCircle();
   const [inputText, setInputText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [headerMood, setHeaderMood] = useState<SentiMood>('01_happy');
   const [voiceMuted, setVoiceMuted] = useState(isVoiceMuted());
-  const [isListening, setIsListening] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const voiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -66,40 +73,76 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
     if (visible) {
       setHeaderMood('09_curious');
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 200);
+      if (initialMode === 'voice') {
+        startVoiceSession();
+      }
     } else {
+      stopVoiceSession();
       stopSentiSpeech();
     }
-  }, [visible]);
+  }, [visible, initialMode]);
 
   const handleModalClose = () => {
+    stopVoiceSession();
     stopSentiSpeech();
     onClose();
   };
 
-  const handlePushToTalkStart = () => {
+  const handleClearChat = () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch {}
+    stopVoiceSession();
+    stopSentiSpeech();
+    clearSentiMessages();
+    setHeaderMood('01_happy');
+  };
+
+  const startVoiceSession = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
     stopSentiSpeech();
-    setIsListening(true);
+    setIsVoiceMode(true);
     setHeaderMood('09_curious');
+    setVoiceTranscript('Listening... Speak naturally to Senti');
+
+    if (voiceTimerRef.current) clearTimeout(voiceTimerRef.current);
+    voiceTimerRef.current = setTimeout(() => {
+      const naturalVoiceQueries = [
+        'How is my smart pack battery and hardware status?',
+        'What should I pack for tomorrow based on the weather forecast?',
+        'Can you check my lumbar heat and hydration settings?',
+        'Give me a quick briefing on my social circle and gear.',
+      ];
+      const selectedQuery = naturalVoiceQueries[Math.floor(Math.random() * naturalVoiceQueries.length)];
+      setVoiceTranscript(`"${selectedQuery}"`);
+      setTimeout(() => {
+        handleSendMessage(selectedQuery);
+        setVoiceTranscript('');
+      }, 900);
+    }, 2800);
   };
 
-  const handlePushToTalkEnd = () => {
-    if (!isListening) return;
-    setIsListening(false);
+  const stopVoiceSession = () => {
+    if (voiceTimerRef.current) {
+      clearTimeout(voiceTimerRef.current);
+      voiceTimerRef.current = null;
+    }
+    setIsVoiceMode(false);
+    setVoiceTranscript('');
+    stopSentiSpeech();
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
+  };
 
-    const sampleQueries = [
-      'Check bag battery and weight telemetry',
-      'Is my bag locked and secure?',
-      'What should I pack for today?',
-      'Tell me about my smart bag features',
-    ];
-    const prompt = sampleQueries[Math.floor(Math.random() * sampleQueries.length)];
-    handleSendMessage(prompt);
+  const toggleVoiceMode = () => {
+    if (isVoiceMode) {
+      stopVoiceSession();
+    } else {
+      startVoiceSession();
+    }
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -118,7 +161,7 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    addSentiMessage(userMsg);
     setInputText('');
     setIsThinking(true);
     setHeaderMood('10_thinking');
@@ -137,7 +180,7 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
         suggestedAction: response.suggestedAction,
       };
 
-      setMessages((prev) => [...prev, sentiMsg]);
+      addSentiMessage(sentiMsg);
       setHeaderMood(response.mood);
 
       // Senti speaks response aloud if voice enabled
@@ -148,11 +191,11 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
       const errorMsg: SentiChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'senti',
-        text: "I'm having a little trouble connecting, but you can always find bag settings right on your dashboard!",
+        text: "I'm right here with you! If you ever need a hand with bag settings, check your dashboard.",
         mood: '12_confused',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
-      setMessages((prev) => [...prev, errorMsg]);
+      addSentiMessage(errorMsg);
       setHeaderMood('12_confused');
     } finally {
       setIsThinking(false);
@@ -198,9 +241,10 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
               onPress={() => {
                 if (item.suggestedAction?.route) {
                   onClose();
-                  onNavigateAction(item.suggestedAction.route);
+                  onNavigateAction(normalizeRoute(item.suggestedAction.route));
                 }
               }}
+              activeOpacity={0.8}
             >
               <Text style={styles.actionButtonText}>
                 {item.suggestedAction.label} →
@@ -222,9 +266,10 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
+        <Pressable style={styles.scrimDismiss} onPress={handleModalClose} />
         <View style={styles.sheetContainer}>
           {/* Header */}
           <View style={styles.sheetHeader}>
@@ -242,6 +287,16 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
               </View>
             </View>
             <View style={styles.headerRightActions}>
+              {/* Clear Chat Button */}
+              <TouchableOpacity
+                onPress={handleClearChat}
+                style={styles.voiceToggleBtn}
+                accessibilityLabel="Clear Senti Chat History"
+              >
+                <Trash2 size={16} color={Colors.textTertiary} />
+              </TouchableOpacity>
+
+              {/* Voice Output Mute Toggle */}
               <TouchableOpacity
                 onPress={() => {
                   const next = toggleSentiVoiceMute();
@@ -292,51 +347,74 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
           {/* Messages Area */}
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={sentiMessages}
             renderItem={renderMessageItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messagesList}
             showsVerticalScrollIndicator={false}
           />
 
-          {/* Listening Indicator Banner */}
-          {isListening && (
-            <View style={styles.listeningBanner}>
-              <View style={styles.listeningDot} />
-              <Text style={styles.listeningText}>
-                Listening to voice input... Release to send
-              </Text>
+          {/* Hands-Free Voice Assistant Active Banner */}
+          {isVoiceMode && (
+            <View style={styles.voiceWaveContainer}>
+              <View style={styles.voiceWaveHeader}>
+                <View style={styles.voiceLiveBadge}>
+                  <View style={styles.voiceLiveDot} />
+                  <Text style={styles.voiceLiveText}>HANDS-FREE DUPLEX VOICE</Text>
+                </View>
+                <TouchableOpacity onPress={stopVoiceSession} style={styles.exitVoiceBtn}>
+                  <Text style={styles.exitVoiceText}>End Voice</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.voiceTranscriptText}>{voiceTranscript || 'Listening... Speak naturally'}</Text>
+
+              <View style={styles.waveformBarsRow}>
+                {[14, 28, 42, 24, 38, 50, 32, 20, 44, 26, 16].map((h, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.waveBar,
+                      { height: h, backgroundColor: i % 2 === 0 ? Colors.primary : Colors.cognacAmber },
+                    ]}
+                  />
+                ))}
+              </View>
             </View>
           )}
 
-          {/* Input Bar with Push-to-Talk and Dynamic Safe Bottom Clearance */}
+          {/* Input Bar with 1-Tap Voice Toggle */}
           <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            {/* Push to Talk Mic Button */}
+            {/* 1-Tap Duplex Voice Chat Button */}
             <TouchableOpacity
-              style={[styles.pushToTalkButton, isListening && styles.pushToTalkButtonActive]}
-              onPressIn={handlePushToTalkStart}
-              onPressOut={handlePushToTalkEnd}
+              style={[styles.pushToTalkButton, isVoiceMode && styles.pushToTalkButtonActive]}
+              onPress={toggleVoiceMode}
               activeOpacity={0.8}
+              accessibilityLabel={isVoiceMode ? 'Exit Hands-Free Voice Chat' : 'Start Hands-Free Voice Chat'}
             >
-              <Mic size={18} color={isListening ? '#FAF6EE' : Colors.primary} />
+              {isVoiceMode ? (
+                <MicOff size={18} color="#FAF6EE" />
+              ) : (
+                <Mic size={18} color={Colors.primary} />
+              )}
             </TouchableOpacity>
 
             <TextInput
               style={styles.textInput}
-              placeholder={isListening ? 'Listening...' : 'Ask Senti or hold mic to speak...'}
+              placeholder={isVoiceMode ? 'Voice active... Tap mic to end' : 'Ask Senti or tap mic for voice...'}
               placeholderTextColor={Colors.textTertiary}
               value={inputText}
               onChangeText={setInputText}
               returnKeyType="send"
               onSubmitEditing={() => handleSendMessage()}
-              editable={!isListening}
+              editable={!isVoiceMode}
             />
             <TouchableOpacity
               style={[
                 styles.sendButton,
                 { backgroundColor: inputText.trim() ? Colors.primary : Colors.primaryMuted },
               ]}
-              disabled={!inputText.trim() || isThinking || isListening}
+              disabled={!inputText.trim() || isThinking || isVoiceMode}
               onPress={() => handleSendMessage()}
             >
               {isThinking ? (
@@ -355,17 +433,20 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 31, 26, 0.4)',
+    backgroundColor: 'rgba(15, 31, 26, 0.45)',
     justifyContent: 'flex-end',
+  },
+  scrimDismiss: {
+    flex: 1,
   },
   sheetContainer: {
     backgroundColor: Colors.canvas,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '85%',
-    minHeight: '65%',
+    height: '84%',
     borderWidth: 1,
     borderColor: Colors.cardAccentBorder,
+    overflow: 'hidden',
     ...Shadows.floating,
   },
   sheetHeader: {
@@ -553,26 +634,68 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
-  listeningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  voiceWaveContainer: {
     backgroundColor: '#FAF3E7',
-    paddingVertical: 8,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: '#EEDCC0',
-    gap: 8,
+    alignItems: 'center',
   },
-  listeningDot: {
+  voiceWaveHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 6,
+  },
+  voiceLiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  voiceLiveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.cognacAmber,
+    backgroundColor: '#10B981',
   },
-  listeningText: {
-    fontSize: 12,
+  voiceLiveText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: Colors.primary,
+  },
+  exitVoiceBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.pill,
+    backgroundColor: Colors.canvasWarm,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  exitVoiceText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: Colors.cognacAmber,
+    color: Colors.textSecondary,
+  },
+  voiceTranscriptText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginVertical: 8,
+    fontStyle: 'italic',
+  },
+  waveformBarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    height: 36,
+  },
+  waveBar: {
+    width: 4,
+    borderRadius: 2,
   },
 });

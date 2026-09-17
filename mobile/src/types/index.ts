@@ -248,6 +248,7 @@ export interface ExtendedProfile {
   shippingAddress: string;
   birthday?: string;
   dateOfBirth?: string;
+  gender?: 'female' | 'male' | 'non_binary' | 'prefer_not_to_say';
   avatarUri?: string;
   guardianName: string;
   guardianPhone: string;
@@ -288,4 +289,20 @@ export interface CyclePhaseData {
   lumbarHeatActive: boolean;
   lumbarHeatMinutesRemaining: number;
 }
+
+export interface VitalityFocusData {
+  spinalLoadKg: number;
+  recommendedMaxKg: number;
+  isPostureBalanced: boolean;
+  spinalLoadPct: number;
+  dailyHydrationCurrentL: number;
+  dailyHydrationTargetL: number;
+  focusSprintMinutesRemaining: number;
+  focusSprintTotalMinutes: number;
+  isFocusSprintActive: boolean;
+  lumbarHeatActive: boolean;
+  lumbarHeatMinutesRemaining: number;
+  energyStateText: string;
+}
+
 

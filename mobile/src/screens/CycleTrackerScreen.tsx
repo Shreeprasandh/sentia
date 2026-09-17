@@ -9,6 +9,7 @@ import {
   Image,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -24,6 +25,8 @@ import {
   Activity,
   Check,
   CheckCircle2,
+  X,
+  Lock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -78,6 +81,7 @@ export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }
   const { cycleData, syncCycleToBag, toggleLumbarHeat, logCycleSymptom } = useCircle();
   const [bagSyncEnabled, setBagSyncEnabled] = useState(true);
   const [selectedPhase, setSelectedPhase] = useState<'menstrual' | 'follicular' | 'ovulatory' | 'luteal'>(cycleData.phase);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const topInset = Math.max(
     insets.top,
@@ -104,7 +108,18 @@ export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }
           <Text style={styles.headerTitle}>Cycle Care Sync</Text>
           <Text style={styles.headerSubtitle}>Hardware & Wellness Alliance</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            } catch {}
+            setShowPrivacyModal(true);
+          }}
+          style={styles.backButton}
+          accessibilityLabel="Zero-Knowledge Privacy Security"
+        >
+          <ShieldCheck size={19} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -303,17 +318,58 @@ export const CycleTrackerScreen: React.FC<CycleTrackerScreenProps> = ({ onBack }
           </View>
         </TouchableOpacity>
 
-        {/* Strict Privacy Shield Notice */}
-        <View style={styles.privacyCard}>
-          <ShieldCheck size={20} color={Colors.primary} />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.privacyHeading}>100% Solo-Confidential Data</Text>
-            <Text style={styles.privacyText}>
-              Your cycle telemetry is stored exclusively on this device with biometric encryption. It is permanently excluded from Friends Mode, Group Tribes, and third-party networks.
-            </Text>
+      </ScrollView>
+
+      {/* Zero-Knowledge Privacy Architecture Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.privacyModalCard}>
+            <View style={styles.privacyModalHeader}>
+              <View style={styles.privacyIconBadge}>
+                <ShieldCheck size={22} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.privacyModalTitle}>100% Solo-Confidential</Text>
+                <Text style={styles.privacyModalSub}>Zero-Knowledge Client Encryption</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowPrivacyModal(false)} style={styles.closeBtn}>
+                <X size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.privacyBodyBox}>
+              <View style={styles.privacyPoint}>
+                <Lock size={16} color={Colors.primary} style={{ marginTop: 2 }} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.privacyPointTitle}>Hardware Device Isolation</Text>
+                  <Text style={styles.privacyPointBody}>
+                    Your cycle dates, symptoms, and physiological rhythm are encrypted on your physical device using AES-256-GCM.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.privacyPoint}>
+                <ShieldCheck size={16} color={Colors.primary} style={{ marginTop: 2 }} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.privacyPointTitle}>Excluded from Social Circle</Text>
+                  <Text style={styles.privacyPointBody}>
+                    Cycle telemetry is permanently excluded from Social Circle, companions, journey pods, and advertising networks.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.privacyCloseCta} onPress={() => setShowPrivacyModal(false)}>
+              <Text style={styles.privacyCloseCtaText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      </Modal>
     </View>
   );
 };
@@ -719,25 +775,85 @@ const styles = StyleSheet.create({
   thumbOff: {
     alignSelf: 'flex-start',
   },
-  privacyCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FAF6EE',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 31, 26, 0.65)',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  privacyModalCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    marginTop: Spacing.md,
+    padding: Spacing.xl,
+    ...Shadows.card,
     borderWidth: 1,
     borderColor: '#EEDCC0',
   },
-  privacyHeading: {
-    fontSize: 12,
+  privacyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FAF6EE',
+  },
+  privacyIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FAF6EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  privacyModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  privacyModalSub: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 6,
+  },
+  privacyBodyBox: {
+    gap: 14,
+    marginVertical: Spacing.md,
+  },
+  privacyPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FAF6EE',
+    padding: 12,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  privacyPointTitle: {
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.primary,
     marginBottom: 2,
   },
-  privacyText: {
+  privacyPointBody: {
     fontSize: 11,
     color: Colors.textSecondary,
     lineHeight: 16,
+  },
+  privacyCloseCta: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.pill,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+  },
+  privacyCloseCtaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FAF6EE',
   },
 });

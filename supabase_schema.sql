@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     country TEXT,
     date_of_birth DATE,
     address TEXT,
+    gender TEXT CHECK (gender IN ('female', 'male', 'non_binary', 'prefer_not_to_say')) DEFAULT 'prefer_not_to_say',
     profile_image TEXT,
     language TEXT DEFAULT 'en',
     lifestyle_preference TEXT CHECK (lifestyle_preference IN ('student', 'working_professional', 'traveller', 'general_lifestyle')) DEFAULT 'general_lifestyle',

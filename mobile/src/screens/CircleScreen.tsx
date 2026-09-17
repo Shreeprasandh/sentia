@@ -34,6 +34,7 @@ import {
   X,
   Trash2,
   Luggage,
+  Info,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -72,6 +73,7 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
   const [showCreateTribeModal, setShowCreateTribeModal] = useState(false);
   const [selectedCompanion, setSelectedCompanion] = useState<FriendContact | null>(null);
   const [selectedTribe, setSelectedTribe] = useState<GroupTribe | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   // New Tribe Form
   const [tribeName, setTribeName] = useState('');
@@ -121,14 +123,24 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
         </TouchableOpacity>
 
         <View style={styles.headerTitleGroup}>
-          <Text style={styles.headerTitle}>Sentia Circle</Text>
+          <Text style={styles.headerTitle}>Social Circle</Text>
           <View style={styles.modeBadge}>
-            <View style={[styles.modeDot, { backgroundColor: '#10B981' }]} />
-            <Text style={styles.modeText}>Companions & Pod Mesh</Text>
+            <Text style={styles.modeText}>Verified Connections & Journey Pods</Text>
           </View>
         </View>
 
-        <View style={styles.headerRightPlaceholder} />
+        <TouchableOpacity
+          onPress={() => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            } catch {}
+            setShowInfoModal(true);
+          }}
+          style={styles.backButton}
+          accessibilityLabel="Social Circle & Privacy Guide"
+        >
+          <Info size={18} color={Colors.cognacAmber} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -454,6 +466,58 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
 
             <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleCreateTribe}>
               <Text style={styles.modalSubmitBtnText}>Create Tribe</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Social Circle & Privacy Monograph Modal */}
+      <Modal
+        visible={showInfoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalHeader}>
+              <View style={styles.infoIconBadge}>
+                <Shield size={20} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.infoModalTitle}>Social Circle & Privacy</Text>
+                <Text style={styles.infoModalSub}>Peer Telemetry & Cryptographic Rights</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowInfoModal(false)} style={styles.closeInfoBtn}>
+                <X size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.infoSection}>
+                <Text style={styles.infoSectionTitle}>What is Social Circle?</Text>
+                <Text style={styles.infoSectionBody}>
+                  Social Circle connects your Sentia hardware to trusted companions and journey pods. It enables group gear manifests, proximity arrival notices, and battery health checks across shared travel journeys.
+                </Text>
+              </View>
+
+              <View style={styles.infoSection}>
+                <Text style={styles.infoSectionTitle}>Ghost Shield Cryptography</Text>
+                <Text style={styles.infoSectionBody}>
+                  With one tap, engage Ghost Shield to immediately make your bag invisible to all companions. Your GPS coordinates, battery level, and lock status are severed from the live stream at the database level via Supabase Row-Level Security (RLS).
+                </Text>
+              </View>
+
+              <View style={styles.infoSection}>
+                <Text style={styles.infoSectionTitle}>Health & Intimacy Isolation</Text>
+                <Text style={styles.infoSectionBody}>
+                  Your personal wellness telemetry, menstrual cycle tracking, and internal bag sensor contents are permanently zero-knowledge isolated on your physical device and are never transmitted to friends or pods.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalSubmitBtn} onPress={() => setShowInfoModal(false)}>
+              <Text style={styles.modalSubmitBtnText}>Understood</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1043,5 +1107,63 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FAF6EE',
+  },
+  infoModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    ...Shadows.card,
+  },
+  infoModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FAF3E7',
+  },
+  infoIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FAF3E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  infoModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  infoModalSub: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  closeInfoBtn: {
+    padding: 6,
+  },
+  infoSection: {
+    marginBottom: Spacing.md,
+    backgroundColor: '#FAF3E7',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  infoSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.cognacAmber,
+    marginBottom: 4,
+  },
+  infoSectionBody: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
   },
 });

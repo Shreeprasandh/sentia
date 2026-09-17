@@ -27,12 +27,16 @@ import {
   ShieldCheck,
   Sparkles,
   X,
+  Box,
+  Image as ImageIcon,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { BOUTIQUE_PRODUCTS } from '../data/boutiqueData';
 import { BoutiqueProduct } from '../types';
 import { useCircle } from '../context/CircleContext';
+import { Sentia3DViewer } from '../components/Sentia3DViewer';
+import { BAG_3D_MODELS } from '../assets/modelMap';
 
 interface ShopScreenProps {
   onBack: () => void;
@@ -46,11 +50,27 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
   const formatInr = (val?: number) => '₹' + (val ?? 0).toLocaleString('en-IN');
 
   const [selectedProduct, setSelectedProduct] = useState<BoutiqueProduct | null>(null);
+  const [detailViewMode, setDetailViewMode] = useState<'2d' | '3d'>('2d');
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'demo'>('cod');
   const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [lastOrderNumber, setLastOrderNumber] = useState('');
+
+  const getProduct3DMeta = (prodId: string) => {
+    switch (prodId) {
+      case 'prod-1':
+        return BAG_3D_MODELS['bag-01'];
+      case 'prod-2':
+        return BAG_3D_MODELS['bag-02'];
+      case 'prod-3':
+        return BAG_3D_MODELS['bag-03'];
+      case 'prod-4':
+        return BAG_3D_MODELS['bag-02'];
+      default:
+        return BAG_3D_MODELS['bag-01'];
+    }
+  };
 
   const topInset =
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 20) + 8;
@@ -60,6 +80,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
     setSelectedProduct(product);
+    setDetailViewMode('2d');
     setActiveFaqIndex(null);
   };
 
@@ -198,11 +219,47 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
 
               <ScrollView contentContainerStyle={styles.sheetScroll} showsVerticalScrollIndicator={false}>
                 <View style={styles.modalImageWrap}>
-                  <Image
-                    source={selectedProduct.image}
-                    style={styles.modalImage}
-                    resizeMode="contain"
-                  />
+                  <TouchableOpacity
+                    style={styles.modalFloatingBadge}
+                    onPress={() => {
+                      try {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch {}
+                      setDetailViewMode((prev) => (prev === '2d' ? '3d' : '2d'));
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityLabel={
+                      detailViewMode === '3d'
+                        ? 'Switch to 2D studio photo'
+                        : 'Switch to 3D interactive model'
+                    }
+                  >
+                    {detailViewMode === '3d' ? (
+                      <>
+                        <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                        <Text style={styles.floatingBadgeText}>2D</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                        <Text style={styles.floatingBadgeText}>3D</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {detailViewMode === '3d' ? (
+                    <Sentia3DViewer
+                      modelMeta={getProduct3DMeta(selectedProduct.id)}
+                      height={240}
+                      autoRotate={true}
+                    />
+                  ) : (
+                    <Image
+                      source={selectedProduct.image}
+                      style={styles.modalImage}
+                      resizeMode="contain"
+                    />
+                  )}
                 </View>
 
                 <View style={styles.modalPriceRatingRow}>
@@ -705,11 +762,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   modalImageWrap: {
+    position: 'relative',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.canvasElevated,
     borderRadius: 20,
     padding: Spacing.md,
     marginBottom: Spacing.md,
+    minHeight: 190,
   },
   modalImage: {
     width: '100%',
@@ -1093,5 +1153,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FAF6EE',
+  },
+  modalFloatingBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(250, 246, 238, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(6, 78, 59, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    shadowColor: '#064E3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  floatingBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 0.5,
   },
 });
