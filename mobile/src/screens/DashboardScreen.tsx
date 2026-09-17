@@ -43,7 +43,6 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { SentiCompanion } from '../components/SentiCompanion';
-import { SentiChatModal } from '../components/SentiChatModal';
 import { OnboardingTour } from '../components/OnboardingTour';
 import { DeviceCarousel } from '../components/DeviceCarousel';
 import { WallCalendarModal } from '../components/WallCalendarModal';
@@ -63,13 +62,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     activeTelemetry,
     activeBag,
     profile,
-    isSentiChatOpen,
-    sentiChatInitialMode,
     openSentiChat,
-    closeSentiChat,
     inAppWakeWordEnabled,
   } = useCircle();
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showStudyModal, setShowStudyModal] = useState(false);
@@ -183,7 +178,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             initialMood={sentiMood}
             speechBubbleText={sentiSpeech}
             size={46}
-            onPress={() => setIsChatOpen(true)}
+            onPress={() => openSentiChat('text')}
             idleTimeoutSeconds={15}
           />
         </View>
@@ -512,17 +507,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           <ArrowRight size={16} color={Colors.primary} />
         </TouchableOpacity>
       </ScrollView>
-
-      {/* Senti AI Chat Sheet Modal */}
-      <SentiChatModal
-        visible={isChatOpen || isSentiChatOpen}
-        onClose={() => {
-          setIsChatOpen(false);
-          closeSentiChat();
-        }}
-        initialMode={sentiChatInitialMode}
-        onNavigateAction={(route) => onNavigate(route)}
-      />
 
       {/* 3D Wall Calendar Modal with Cycle Care Horizon */}
       <WallCalendarModal

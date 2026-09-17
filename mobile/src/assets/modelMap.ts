@@ -40,6 +40,15 @@ export const BAG_3D_MODELS: Record<string, Bag3DModelMeta> = {
     cameraOrbit: '0deg 75deg 105%',
     fieldOfView: '30deg',
   },
+  'bag-04': {
+    id: 'bag-04',
+    name: 'Smart Commuter Sling',
+    modelCode: 'Model SLG-04 • Aerodynamic Carbon',
+    asset: require('../../assets/models/sentia_slg04.glb'),
+    webUrl: '/models/sentia_slg04.glb',
+    cameraOrbit: '0deg 75deg 105%',
+    fieldOfView: '30deg',
+  },
 };
 
 export const get3DModelForBag = (bagId: string): Bag3DModelMeta => {

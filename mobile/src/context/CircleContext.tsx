@@ -877,22 +877,24 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const dateStr = today.toISOString().split('T')[0];
 
     // Check if any preset has an explicit date match
-    const dateMatchedPreset = INITIAL_PRESETS.find((p) => p.specificDate === dateStr);
+    const dateMatchedPreset = presets.find((p) => p.specificDate === dateStr);
     if (dateMatchedPreset) {
-      setActivePresetId(dateMatchedPreset.id);
-      setActiveItems(dateMatchedPreset.items);
+      if (dateMatchedPreset.id !== activePresetId) {
+        setActivePresetId(dateMatchedPreset.id);
+        setActiveItems(dateMatchedPreset.items);
+      }
       return;
     }
 
     // Check if any preset is scheduled for today's day of week
-    const dayMatchedPreset = INITIAL_PRESETS.find((p) => p.scheduledDays.includes(dayOfWeek));
-    if (dayMatchedPreset) {
+    const dayMatchedPreset = presets.find((p) => p.scheduledDays.includes(dayOfWeek));
+    if (dayMatchedPreset && dayMatchedPreset.id !== activePresetId) {
       setActivePresetId(dayMatchedPreset.id);
       setActiveItems(dayMatchedPreset.items);
     }
-  }, []);
+  }, [presets]);
 
-  // Lumbar heat timer countdown
+  // Lumbar heat timer countdown (Cycle Care)
   useEffect(() => {
     let timer: any;
     if (cycleData.lumbarHeatActive && cycleData.lumbarHeatMinutesRemaining > 0) {
@@ -900,6 +902,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCycleData((prev) => {
           if (prev.lumbarHeatMinutesRemaining <= 1) {
             clearInterval(timer);
+            HardwareGateway.sendCommand(activeBagId, 'HEAT_OFF');
             return { ...prev, lumbarHeatActive: false, lumbarHeatMinutesRemaining: 0 };
           }
           return { ...prev, lumbarHeatMinutesRemaining: prev.lumbarHeatMinutesRemaining - 1 };
@@ -907,7 +910,49 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }, 60000);
     }
     return () => clearInterval(timer);
-  }, [cycleData.lumbarHeatActive]);
+  }, [cycleData.lumbarHeatActive, activeBagId]);
+
+  // Vitality Focus Sprint Countdown Timer
+  useEffect(() => {
+    let timer: any;
+    if (vitalityData.isFocusSprintActive && vitalityData.focusSprintMinutesRemaining > 0) {
+      timer = setInterval(() => {
+        setVitalityData((prev) => {
+          if (prev.focusSprintMinutesRemaining <= 1) {
+            clearInterval(timer);
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch {}
+            return {
+              ...prev,
+              isFocusSprintActive: false,
+              focusSprintMinutesRemaining: prev.focusSprintTotalMinutes || 90,
+            };
+          }
+          return { ...prev, focusSprintMinutesRemaining: prev.focusSprintMinutesRemaining - 1 };
+        });
+      }, 60000);
+    }
+    return () => clearInterval(timer);
+  }, [vitalityData.isFocusSprintActive]);
+
+  // Vitality Lumbar Heat Countdown Timer
+  useEffect(() => {
+    let timer: any;
+    if (vitalityData.lumbarHeatActive && vitalityData.lumbarHeatMinutesRemaining > 0) {
+      timer = setInterval(() => {
+        setVitalityData((prev) => {
+          if (prev.lumbarHeatMinutesRemaining <= 1) {
+            clearInterval(timer);
+            HardwareGateway.sendCommand(activeBagId, 'HEAT_OFF');
+            return { ...prev, lumbarHeatActive: false, lumbarHeatMinutesRemaining: 0 };
+          }
+          return { ...prev, lumbarHeatMinutesRemaining: prev.lumbarHeatMinutesRemaining - 1 };
+        });
+      }, 60000);
+    }
+    return () => clearInterval(timer);
+  }, [vitalityData.lumbarHeatActive, activeBagId]);
 
   const toggleMode = () => {
     try {

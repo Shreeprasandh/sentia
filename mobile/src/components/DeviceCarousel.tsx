@@ -201,7 +201,7 @@ export const DeviceCarousel: React.FC = () => {
           </TouchableOpacity>
 
           {viewModeMap[item.id] === '3d' ? (
-            <Sentia3DViewer bagId={item.id} height={180} autoRotate={true} />
+            <Sentia3DViewer bagId={item.id} height={180} autoRotate={true} showControls={false} />
           ) : (
             <Image source={item.image} style={styles.bagImage} resizeMode="contain" />
           )}

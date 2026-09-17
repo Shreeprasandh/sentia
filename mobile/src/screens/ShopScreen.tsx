@@ -66,7 +66,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
       case 'prod-3':
         return BAG_3D_MODELS['bag-03'];
       case 'prod-4':
-        return BAG_3D_MODELS['bag-02'];
+        return BAG_3D_MODELS['bag-04'];
       default:
         return BAG_3D_MODELS['bag-01'];
     }

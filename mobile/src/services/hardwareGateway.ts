@@ -100,6 +100,19 @@ export class HardwareGateway {
   ): Promise<boolean> {
     try {
       const channel = getCommandChannel(bagId);
+      // Connection readiness guard: await joined status if channel is still connecting
+      if (channel && channel.state !== 'joined') {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => resolve(), 750);
+          channel.subscribe((status: string) => {
+            if (status === 'SUBSCRIBED') {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+        });
+      }
+
       await channel.send({
         type: 'broadcast',
         event: 'hardware_command',

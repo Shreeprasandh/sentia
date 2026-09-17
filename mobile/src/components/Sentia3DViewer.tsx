@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { Asset } from 'expo-asset';
 import { RotateCw, Maximize2, Sparkles } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, BorderRadius, Spacing } from '../theme/tokens';
 import { Bag3DModelMeta, get3DModelForBag } from '../assets/modelMap';
 
@@ -32,6 +33,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
   const [assetUri, setAssetUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'back'>('front');
+  const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -67,19 +69,20 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
     };
   }, [meta.id]);
 
-  const getCameraOrbit = () => {
-    switch (activeAngle) {
-      case 'side':
-        return '90deg 75deg 105%';
-      case 'back':
-        return '180deg 75deg 105%';
-      case 'front':
-      default:
-        return '0deg 75deg 105%';
-    }
+  const handleAngleChange = (angle: 'front' | 'side' | 'back') => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    setActiveAngle(angle);
+    webViewRef.current?.injectJavaScript(`
+      if (window.setCameraAngle) {
+        window.setCameraAngle('${angle}');
+      }
+      true;
+    `);
   };
 
-  const htmlContent = `
+  const htmlContent = useMemo(() => `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -116,7 +119,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
         camera-controls
         touch-action="pan-y"
         ${autoRotate ? 'auto-rotate auto-rotate-delay="800" rotation-per-second="18deg"' : ''}
-        camera-orbit="${getCameraOrbit()}"
+        camera-orbit="0deg 75deg 105%"
         field-of-view="${meta.fieldOfView}"
         shadow-intensity="1.4"
         shadow-softness="0.75"
@@ -137,7 +140,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
       </script>
     </body>
     </html>
-  `;
+  `, [assetUri, meta.id, meta.webUrl, meta.fieldOfView, autoRotate]);
 
   return (
     <View style={[styles.container, { height }]}>
@@ -149,6 +152,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
       )}
 
       <WebView
+        ref={webViewRef}
         originWhitelist={['*']}
         source={{ html: htmlContent }}
         style={styles.webview}
@@ -167,7 +171,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
           <View style={styles.angleButtonGroup}>
             <TouchableOpacity
               style={[styles.angleBtn, activeAngle === 'front' && styles.angleBtnActive]}
-              onPress={() => setActiveAngle('front')}
+              onPress={() => handleAngleChange('front')}
               activeOpacity={0.8}
             >
               <Text
@@ -182,7 +186,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
 
             <TouchableOpacity
               style={[styles.angleBtn, activeAngle === 'side' && styles.angleBtnActive]}
-              onPress={() => setActiveAngle('side')}
+              onPress={() => handleAngleChange('side')}
               activeOpacity={0.8}
             >
               <Text
@@ -197,7 +201,7 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
 
             <TouchableOpacity
               style={[styles.angleBtn, activeAngle === 'back' && styles.angleBtnActive]}
-              onPress={() => setActiveAngle('back')}
+              onPress={() => handleAngleChange('back')}
               activeOpacity={0.8}
             >
               <Text

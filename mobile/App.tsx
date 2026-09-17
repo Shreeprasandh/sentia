@@ -15,6 +15,7 @@ import { SettingsAndLegalScreen } from './src/screens/SettingsAndLegalScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { AppStartupAnimation } from './src/components/AppStartupAnimation';
 import { OnboardingTour } from './src/components/OnboardingTour';
+import { SentiChatModal } from './src/components/SentiChatModal';
 import { CircleProvider, useCircle } from './src/context/CircleContext';
 import { useDoubleBackExit } from './src/hooks/useDoubleBackExit';
 
@@ -40,7 +41,16 @@ type NavTab = 'dashboard' | 'radar' | 'essentials' | 'cycle' | 'circle' | 'shop'
 
 function MainContent() {
   const insets = useSafeAreaInsets();
-  const { mode, isAuthenticated, showOnboardingTour, setShowOnboardingTour, profile } = useCircle();
+  const {
+    mode,
+    isAuthenticated,
+    showOnboardingTour,
+    setShowOnboardingTour,
+    profile,
+    isSentiChatOpen,
+    sentiChatInitialMode,
+    closeSentiChat,
+  } = useCircle();
   const [isStartingUp, setIsStartingUp] = useState<boolean>(true);
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
 
@@ -96,6 +106,14 @@ function MainContent() {
           <OnboardingTour
             visible={showOnboardingTour}
             onComplete={() => setShowOnboardingTour(false)}
+          />
+
+          {/* Senti Interactive AI Chat Sheet Modal (Globally Accessible Across All Tabs) */}
+          <SentiChatModal
+            visible={isSentiChatOpen}
+            onClose={closeSentiChat}
+            initialMode={sentiChatInitialMode}
+            onNavigateAction={(route) => setCurrentTab(route as NavTab)}
           />
 
           {/* Artisanal Bottom Tab Bar with Dynamic Safe Area Clearance */}
