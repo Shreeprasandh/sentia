@@ -39,7 +39,10 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { useCircle } from '../context/CircleContext';
 import { AddFriendModal } from '../components/AddFriendModal';
+import { CompanionDetailModal } from '../components/CompanionDetailModal';
+import { TribeHubModal } from '../components/TribeHubModal';
 import { SentiAvatars } from '../assets/mascotMap';
+import { FriendContact, GroupTribe } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -67,6 +70,8 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<'friends' | 'tribes'>('friends');
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [showCreateTribeModal, setShowCreateTribeModal] = useState(false);
+  const [selectedCompanion, setSelectedCompanion] = useState<FriendContact | null>(null);
+  const [selectedTribe, setSelectedTribe] = useState<GroupTribe | null>(null);
 
   // New Tribe Form
   const [tribeName, setTribeName] = useState('');
@@ -118,19 +123,12 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
         <View style={styles.headerTitleGroup}>
           <Text style={styles.headerTitle}>Sentia Circle</Text>
           <View style={styles.modeBadge}>
-            <View style={[styles.modeDot, { backgroundColor: mode === 'friends' ? Colors.cognacAmber : Colors.primary }]} />
-            <Text style={styles.modeText}>
-              {mode === 'friends' ? 'Friends Duality Active' : 'Solo Mode'}
-            </Text>
+            <View style={[styles.modeDot, { backgroundColor: '#10B981' }]} />
+            <Text style={styles.modeText}>Companions & Pod Mesh</Text>
           </View>
         </View>
 
-        {/* 1-Tap Mode Duality Switch */}
-        <TouchableOpacity style={styles.modeToggleBtn} onPress={toggleMode}>
-          <Text style={styles.modeToggleText}>
-            {mode === 'friends' ? 'Switch Solo' : 'Switch Circle'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightPlaceholder} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -140,7 +138,12 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
           onPress={toggleGhostMode}
           activeOpacity={0.85}
         >
-          <View style={styles.ghostIconWrapper}>
+          <View
+            style={[
+              styles.ghostIconWrapper,
+              ghostMode ? styles.ghostIconWrapperActive : styles.ghostIconWrapperInactive,
+            ]}
+          >
             {ghostMode ? (
               <EyeOff size={20} color="#FAF6EE" />
             ) : (
@@ -249,7 +252,12 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
         {activeTab === 'friends' && (
           <View style={styles.listSection}>
             {friends.map((friend) => (
-              <View key={friend.id} style={styles.friendCard}>
+              <TouchableOpacity
+                key={friend.id}
+                style={styles.friendCard}
+                onPress={() => setSelectedCompanion(friend)}
+                activeOpacity={0.85}
+              >
                 <Image
                   source={SentiAvatars[friend.avatarMood] || SentiAvatars['01_happy']}
                   style={styles.friendAvatar}
@@ -288,7 +296,7 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
                     <Text style={styles.blockBtnText}>Block</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -362,6 +370,16 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
                       ))
                     )}
                   </View>
+
+                  {/* Open Tribe Hub Sheet Action */}
+                  <TouchableOpacity
+                    style={styles.openTribeHubBtn}
+                    onPress={() => setSelectedTribe(group)}
+                    activeOpacity={0.85}
+                  >
+                    <Luggage size={14} color={Colors.cognacAmber} />
+                    <Text style={styles.openTribeHubBtnText}>Manage Pod Manifest & Roster</Text>
+                  </TouchableOpacity>
                 </View>
               ))
             )}
@@ -373,6 +391,20 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
       <AddFriendModal
         visible={showAddFriendModal}
         onClose={() => setShowAddFriendModal(false)}
+      />
+
+      {/* Detail Modal: Verified Companion */}
+      <CompanionDetailModal
+        visible={!!selectedCompanion}
+        companion={selectedCompanion}
+        onClose={() => setSelectedCompanion(null)}
+      />
+
+      {/* Detail Modal: Group Expedition Tribe */}
+      <TribeHubModal
+        visible={!!selectedTribe}
+        tribe={selectedTribe}
+        onClose={() => setSelectedTribe(null)}
       />
 
       {/* Modal: Create Tribe (Strictly 2–10 Members) */}
@@ -476,19 +508,8 @@ const styles = StyleSheet.create({
     color: Colors.cognacAmber,
     fontWeight: '600',
   },
-  modeToggleBtn: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.pill,
-    borderWidth: 1,
-    borderColor: '#EEDCC0',
-    ...Shadows.subtle,
-  },
-  modeToggleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.cognacAmber,
+  headerRightPlaceholder: {
+    width: 40,
   },
   content: {
     paddingHorizontal: Spacing.lg,
@@ -515,9 +536,16 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: Colors.cognacAmber,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ghostIconWrapperActive: {
+    backgroundColor: '#064E3B',
+  },
+  ghostIconWrapperInactive: {
+    backgroundColor: '#FAF3E7',
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
   },
   ghostTextContent: {
     flex: 1,
@@ -905,6 +933,23 @@ const styles = StyleSheet.create({
   gearTitlePacked: {
     textDecorationLine: 'line-through',
     color: Colors.textTertiary,
+  },
+  openTribeHubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FAF3E7',
+    paddingVertical: 9,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+    marginTop: 10,
+  },
+  openTribeHubBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.cognacAmber,
   },
   modalOverlay: {
     flex: 1,

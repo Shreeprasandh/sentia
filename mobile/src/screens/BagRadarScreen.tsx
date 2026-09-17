@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   StatusBar,
   ScrollView,
   Platform,
+  Animated,
+  Easing,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,6 +20,7 @@ import {
   Radio,
   Clock,
   MapPin,
+  AlertTriangle,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -29,9 +33,80 @@ interface BagRadarScreenProps {
 
 export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
-  const { activeBag, activeTelemetry } = useCircle();
+  const { activeBag, activeTelemetry, triggerEmergencySOS, profile } = useCircle();
   const [isBeaconActive, setIsBeaconActive] = useState(false);
   const [geofenceArmed, setGeofenceArmed] = useState(true);
+
+  // Ripple Animation Setup (Active only while focused on Radar screen)
+  const ripple1 = useRef(new Animated.Value(0)).current;
+  const ripple2 = useRef(new Animated.Value(0)).current;
+  const sweep = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createRipple = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 2600,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const sweepLoop = Animated.loop(
+      Animated.timing(sweep, {
+        toValue: 1,
+        duration: 3600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    const anim1 = createRipple(ripple1, 0);
+    const anim2 = createRipple(ripple2, 1300);
+
+    anim1.start();
+    anim2.start();
+    sweepLoop.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      sweepLoop.stop();
+    };
+  }, []);
+
+  const rippleScale1 = ripple1.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.6, 1.4],
+  });
+  const rippleOpacity1 = ripple1.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [0, 0.5, 0.15, 0],
+  });
+
+  const rippleScale2 = ripple2.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.6, 1.4],
+  });
+  const rippleOpacity2 = ripple2.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [0, 0.5, 0.15, 0],
+  });
+
+  const sweepRotate = sweep.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const rssi = activeTelemetry.ble_rssi || -58;
   const estimatedDistanceMeters = Math.max(
@@ -65,6 +140,36 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
     setGeofenceArmed((prev) => !prev);
   };
 
+  const handleTriggerSOS = () => {
+    Alert.alert(
+      'Emergency Hardware SOS',
+      `Dispatch an encrypted distress transmission with real-time BLE proximity telemetry and GPS coordinates to ${profile.guardianEmail || 'your registered emergency guardian'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Dispatch Distress Alert',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              const res = await triggerEmergencySOS();
+              if (res.success) {
+                Alert.alert(
+                  'SOS Transmitted',
+                  `Distress telemetry beacon disarmed and sent to ${profile.guardianEmail || 'guardian'}.`
+                );
+              } else {
+                Alert.alert('SOS Active', 'Acoustic and mesh distress beacon engaged locally.');
+              }
+            } catch {
+              Alert.alert('SOS Active', 'Acoustic and mesh distress beacon engaged locally.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.canvas} translucent={true} />
@@ -81,12 +186,50 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Radar Graphic Card */}
         <View style={styles.radarCard}>
-          <View style={styles.concentricOuterRing}>
-            <View style={styles.concentricMiddleRing}>
-              <View style={styles.concentricInnerRing}>
-                {/* Center Bag Beacon Icon */}
-                <View style={styles.centerBagBeacon}>
-                  <Radio size={24} color="#FAF6EE" />
+          <View style={styles.radarVisualContainer}>
+            {/* Animated Dynamic Ripples */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.rippleRing,
+                {
+                  transform: [{ scale: rippleScale1 }],
+                  opacity: rippleOpacity1,
+                },
+              ]}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.rippleRing,
+                {
+                  transform: [{ scale: rippleScale2 }],
+                  opacity: rippleOpacity2,
+                },
+              ]}
+            />
+
+            {/* Sweep Rotating Beam */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.sweepBeamContainer,
+                {
+                  transform: [{ rotate: sweepRotate }],
+                },
+              ]}
+            >
+              <View style={styles.sweepBeamLine} />
+            </Animated.View>
+
+            {/* Concentric Static Rings */}
+            <View style={styles.concentricOuterRing}>
+              <View style={styles.concentricMiddleRing}>
+                <View style={styles.concentricInnerRing}>
+                  {/* Center Bag Beacon Icon */}
+                  <View style={styles.centerBagBeacon}>
+                    <Radio size={24} color="#FAF6EE" />
+                  </View>
                 </View>
               </View>
             </View>
@@ -187,6 +330,16 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
               ]}
             />
           </View>
+        </TouchableOpacity>
+
+        {/* Small Emergency Hardware SOS Button */}
+        <TouchableOpacity
+          style={styles.sosButton}
+          onPress={handleTriggerSOS}
+          activeOpacity={0.85}
+        >
+          <AlertTriangle size={15} color="#FAF6EE" />
+          <Text style={styles.sosButtonText}>Emergency Hardware SOS</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -425,5 +578,52 @@ const styles = StyleSheet.create({
   },
   toggleThumbOff: {
     alignSelf: 'flex-start',
+  },
+  radarVisualContainer: {
+    width: 230,
+    height: 230,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 115,
+  },
+  rippleRing: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: Colors.cognacAmber,
+  },
+  sweepBeamContainer: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  sweepBeamLine: {
+    width: 2,
+    height: 110,
+    backgroundColor: 'rgba(212, 175, 55, 0.55)',
+    borderRadius: 1,
+  },
+  sosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#991B1B',
+    paddingVertical: 13,
+    borderRadius: BorderRadius.pill,
+    marginTop: Spacing.md,
+    ...Shadows.subtle,
+  },
+  sosButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FAF6EE',
+    letterSpacing: 0.5,
   },
 });

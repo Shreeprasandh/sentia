@@ -173,6 +173,9 @@ export interface FriendContact {
   isOnline: boolean;
   safeStatusText: string;
   friendCode: string;
+  inviteStatus?: 'joined' | 'pending';
+  lastSeenLocation?: string;
+  safeZoneStatus?: 'inside_safe_zone' | 'outside_boundary';
 }
 
 export interface GroupGearItem {
@@ -208,6 +211,7 @@ export interface BoutiqueProduct {
   name: string;
   tagline: string;
   priceUsd: number;
+  priceInr: number;
   category: 'smart_pack' | 'hydration' | 'cycle_care' | 'radar_tag' | 'power_insert';
   image: any;
   rating: number;
@@ -242,6 +246,8 @@ export interface ExtendedProfile {
   userCode: string;
   handle: string;
   shippingAddress: string;
+  birthday?: string;
+  dateOfBirth?: string;
   avatarUri?: string;
   guardianName: string;
   guardianPhone: string;

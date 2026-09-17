@@ -26,6 +26,7 @@ import {
   Truck,
   ShieldCheck,
   Sparkles,
+  X,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -39,8 +40,10 @@ interface ShopScreenProps {
 
 export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
-  const { cart, cartCount, cartTotalUsd, addToCart, removeFromCart, clearCart, profile } =
+  const { cart, cartCount, cartTotalInr, addToCart, removeFromCart, clearCart, profile } =
     useCircle();
+
+  const formatInr = (val?: number) => '₹' + (val ?? 0).toLocaleString('en-IN');
 
   const [selectedProduct, setSelectedProduct] = useState<BoutiqueProduct | null>(null);
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
@@ -138,27 +141,36 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
             </View>
 
             <View style={styles.productDetails}>
-              <Text style={styles.productName}>{prod.name}</Text>
-              <Text style={styles.productTagline}>{prod.tagline}</Text>
-
-              <View style={styles.ratingPriceRow}>
+              <View>
+                <Text style={styles.productName} numberOfLines={1}>
+                  {prod.name}
+                </Text>
+                <Text style={styles.productTagline} numberOfLines={2}>
+                  {prod.tagline}
+                </Text>
                 <View style={styles.ratingRow}>
-                  <Star size={13} color="#D97706" fill="#D97706" />
+                  <Star size={12} color="#D97706" fill="#D97706" />
                   <Text style={styles.ratingText}>
                     {prod.rating} ({prod.reviewsCount})
                   </Text>
                 </View>
-                <Text style={styles.priceText}>${prod.priceUsd}</Text>
               </View>
 
-              <TouchableOpacity
-                style={styles.addToCartQuick}
-                onPress={() => addToCart(prod)}
-                activeOpacity={0.8}
-              >
-                <ShoppingBag size={14} color="#FAF6EE" style={{ marginRight: 6 }} />
-                <Text style={styles.addToCartQuickText}>Add to Bag</Text>
-              </TouchableOpacity>
+              <View style={styles.cardBottomRow}>
+                <View>
+                  <Text style={styles.priceLabel}>PRICE</Text>
+                  <Text style={styles.priceText}>{formatInr(prod.priceInr)}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.addToCartQuick}
+                  onPress={() => addToCart(prod)}
+                  activeOpacity={0.8}
+                >
+                  <Plus size={13} color="#FAF6EE" style={{ marginRight: 4 }} />
+                  <Text style={styles.addToCartQuickText}>Add to Bag</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </TouchableOpacity>
         ))}
@@ -180,9 +192,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                   onPress={() => setSelectedProduct(null)}
                   style={styles.sheetCloseButton}
                 >
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary }}>
-                    ✕
-                  </Text>
+                  <X size={16} color={Colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
@@ -196,7 +206,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                 </View>
 
                 <View style={styles.modalPriceRatingRow}>
-                  <Text style={styles.modalPrice}>${selectedProduct.priceUsd}</Text>
+                  <Text style={styles.modalPrice}>{formatInr(selectedProduct.priceInr)}</Text>
                   <View style={styles.ratingRow}>
                     <Star size={14} color="#D97706" fill="#D97706" />
                     <Text style={styles.modalRatingText}>
@@ -285,7 +295,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                 >
                   <ShoppingBag size={16} color="#FAF6EE" style={{ marginRight: 8 }} />
                   <Text style={styles.addToBagModalText}>
-                    Add to Bag • ${selectedProduct.priceUsd}
+                    Add to Bag • {formatInr(selectedProduct.priceInr)}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -312,9 +322,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                 onPress={() => setIsCartOpen(false)}
                 style={styles.sheetCloseButton}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary }}>
-                  ✕
-                </Text>
+                <X size={16} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -337,7 +345,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={styles.cartItemName}>{item.product.name}</Text>
                       <Text style={styles.cartItemPrice}>
-                        ${item.product.priceUsd * item.quantity} (${item.product.priceUsd} each)
+                        {formatInr(item.product.priceInr * item.quantity)} ({formatInr(item.product.priceInr)} each)
                       </Text>
 
                       <View style={styles.cartQtyRow}>
@@ -371,7 +379,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                     {profile.shippingAddress || 'Indiranagar, Bengaluru, KA 560038'}
                   </Text>
                   <Text style={styles.shippingAutoNote}>
-                    ✓ Auto-populated from your verified profile
+                    Auto-populated from your verified profile
                   </Text>
                 </View>
 
@@ -381,32 +389,35 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                   <TouchableOpacity
                     style={[
                       styles.paymentOption,
-                      paymentMethod === 'cod' && styles.paymentOptionSelected,
+                      styles.paymentOptionSelected,
                     ]}
                     onPress={() => setPaymentMethod('cod')}
                     activeOpacity={0.8}
                   >
-                    <Truck size={16} color={paymentMethod === 'cod' ? Colors.primary : Colors.textTertiary} />
-                    <View style={{ marginLeft: 10 }}>
+                    <Truck size={16} color={Colors.primary} />
+                    <View style={{ marginLeft: 10, flex: 1 }}>
                       <Text style={styles.paymentOptionTitle}>Cash on Delivery (COD)</Text>
-                      <Text style={styles.paymentOptionSub}>Pay upon delivery at your door</Text>
+                      <Text style={styles.paymentOptionSub}>White-glove payment upon delivery at your door</Text>
                     </View>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
+                  <View
                     style={[
                       styles.paymentOption,
-                      paymentMethod === 'demo' && styles.paymentOptionSelected,
+                      { opacity: 0.55, borderColor: Colors.cardAccentBorder, backgroundColor: Colors.canvasElevated },
                     ]}
-                    onPress={() => setPaymentMethod('demo')}
-                    activeOpacity={0.8}
                   >
-                    <CreditCard size={16} color={paymentMethod === 'demo' ? Colors.primary : Colors.textTertiary} />
-                    <View style={{ marginLeft: 10 }}>
-                      <Text style={styles.paymentOptionTitle}>Razorpay / UPI (Demo Mode)</Text>
-                      <Text style={styles.paymentOptionSub}>Instant verified test checkout</Text>
+                    <CreditCard size={16} color={Colors.textTertiary} />
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={[styles.paymentOptionTitle, { color: Colors.textSecondary }]}>Razorpay / Card / UPI</Text>
+                        <View style={{ backgroundColor: Colors.cardAccentBorder, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.textTertiary, letterSpacing: 0.5 }}>NOT AVAILABLE AT THE MOMENT</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.paymentOptionSub}>Online payment gateway in scheduled boutique upgrade</Text>
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 </View>
               </ScrollView>
             )}
@@ -416,7 +427,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
               <View style={[styles.checkoutFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                 <View style={styles.totalRow}>
                   <Text style={styles.totalLabel}>Total Amount</Text>
-                  <Text style={styles.totalAmount}>${cartTotalUsd}</Text>
+                  <Text style={styles.totalAmount}>{formatInr(cartTotalInr)}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.placeOrderButton}
@@ -425,7 +436,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
                 >
                   <ShieldCheck size={16} color="#FAF6EE" style={{ marginRight: 8 }} />
                   <Text style={styles.placeOrderText}>
-                    Confirm Order • {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Instant Demo'}
+                    Confirm Order • Cash on Delivery
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -562,20 +573,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardAccentBorder,
     flexDirection: 'row',
+    minHeight: 136,
     ...Shadows.card,
   },
   productVisualWrap: {
-    width: 100,
-    height: 100,
+    width: 96,
+    height: 96,
     borderRadius: 14,
     backgroundColor: Colors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    alignSelf: 'center',
   },
   productThumb: {
-    width: 80,
-    height: 80,
+    width: 76,
+    height: 76,
   },
   productBadge: {
     position: 'absolute',
@@ -605,22 +618,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textTertiary,
     marginTop: 2,
-  },
-  ratingPriceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 6,
+    lineHeight: 15,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
   },
   ratingText: {
     fontSize: 11,
     color: Colors.textSecondary,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.cardAccentBorder,
+  },
+  priceLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+    letterSpacing: 0.5,
   },
   priceText: {
     fontSize: 15,
@@ -631,12 +655,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.pill,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addToCartQuickText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FAF6EE',
   },

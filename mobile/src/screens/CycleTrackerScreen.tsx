@@ -367,9 +367,9 @@ const styles = StyleSheet.create({
     ...Shadows.card,
   },
   ringOuter: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 154,
+    height: 154,
+    borderRadius: 77,
     borderWidth: 8,
     borderColor: '#FCE7F3',
     borderTopColor: '#BE185D',
@@ -379,19 +379,26 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   ringInner: {
+    width: 120,
+    height: 120,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cycleDaysRemaining: {
     fontSize: 28,
     fontWeight: '800',
     color: '#0F1F1A',
+    lineHeight: 32,
+    textAlign: 'center',
     marginTop: 2,
+    includeFontPadding: false,
   },
   cycleDaysLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: Colors.textSecondary,
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   phasePill: {
     backgroundColor: '#FAF3E7',
@@ -560,6 +567,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    minHeight: 180,
   },
   phaseDetailHeader: {
     marginBottom: 4,

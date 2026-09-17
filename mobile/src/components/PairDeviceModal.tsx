@@ -510,11 +510,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   primaryActionButton: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary,
-    paddingVertical: 13,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.pill,
     gap: 8,
     marginTop: Spacing.md,
@@ -524,9 +526,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryActionText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FAF6EE',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   centerContainer: {
     alignItems: 'center',

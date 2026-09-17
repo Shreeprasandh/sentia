@@ -129,6 +129,6 @@ export function stopSentiSpeech(): void {
 }
 
 export function previewSentiVoice(sample?: string): void {
-  const previewText = sample || 'Hello Sir! Senti is ready to keep your day safe and organized ✨';
+  const previewText = sample || 'Hello Sir! Senti is ready to keep your day safe and organized.';
   speakSenti(previewText);
 }

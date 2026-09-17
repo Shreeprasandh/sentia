@@ -5,8 +5,10 @@ import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../services/supabase';
 import {
   MultiDeviceBag,
+  DeviceRole,
   FriendContact,
   GroupTribe,
+  GroupGearItem,
   CartItem,
   BoutiqueProduct,
   ExtendedProfile,
@@ -17,7 +19,6 @@ import {
   BagTelemetry,
 } from '../types';
 import { dispatchEmergencySOS, SOSDispatchResult } from '../services/sosService';
-import { speakSenti } from '../services/voiceService';
 import { HardwareGateway } from '../services/hardwareGateway';
 
 interface CircleContextType {
@@ -36,6 +37,7 @@ interface CircleContextType {
   cart: CartItem[];
   cartCount: number;
   cartTotalUsd: number;
+  cartTotalInr: number;
   profile: ExtendedProfile;
   toggleMode: () => void;
   toggleGhostMode: () => void;
@@ -51,6 +53,8 @@ interface CircleContextType {
   unblockUser: (id: string) => void;
   createGroup: (name: string, accentColor: string, friendIds: string[]) => boolean;
   toggleGroupGearPacked: (groupId: string, itemId: string) => void;
+  addGroupGearItem: (groupId: string, title: string, category: string, assignedToName: string) => void;
+  removeGroupGearItem: (groupId: string, itemId: string) => void;
   addToCart: (product: BoutiqueProduct, qty?: number) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
@@ -69,7 +73,12 @@ interface CircleContextType {
   activePresetId: string;
   defaultPresetId: string;
   activeItems: EssentialItem[];
-  createPreset: (name: string, iconName?: string, initialItems?: EssentialItem[]) => boolean;
+  createPreset: (
+    name: string,
+    iconName?: string,
+    initialItems?: EssentialItem[],
+    schedule?: { days: number[]; alertTime?: string; specificDate?: string }
+  ) => boolean;
   updatePreset: (id: string, updates: Partial<ChecklistPreset>) => void;
   deletePreset: (id: string) => void;
   setDefaultPreset: (id: string) => void;
@@ -121,6 +130,8 @@ const INITIAL_PROFILE: ExtendedProfile = {
   userCode: 'SNT-782K',
   handle: '@shree.sentia',
   shippingAddress: '452 Belgravia Crescent, Suite 402, London SW1X 7PJ',
+  birthday: '2001-08-14',
+  dateOfBirth: '2001-08-14',
   avatarUri: undefined,
   guardianName: 'Aria Sterling',
   guardianPhone: '+1 (555) 902-3341',
@@ -140,6 +151,9 @@ const INITIAL_FRIENDS: FriendContact[] = [
     isOnline: true,
     safeStatusText: 'Safe at Mayfair Lounge',
     friendCode: 'SNT-339M',
+    inviteStatus: 'joined',
+    lastSeenLocation: 'Mayfair Executive Club, London',
+    safeZoneStatus: 'inside_safe_zone',
   },
   {
     id: 'f-2',
@@ -153,6 +167,9 @@ const INITIAL_FRIENDS: FriendContact[] = [
     isOnline: true,
     safeStatusText: 'Walking on 5th Ave',
     friendCode: 'SNT-821D',
+    inviteStatus: 'joined',
+    lastSeenLocation: 'Upper East Side, New York',
+    safeZoneStatus: 'inside_safe_zone',
   },
   {
     id: 'f-3',
@@ -166,6 +183,9 @@ const INITIAL_FRIENDS: FriendContact[] = [
     isOnline: false,
     safeStatusText: 'Arrived at Shibuya Station',
     friendCode: 'SNT-104K',
+    inviteStatus: 'pending',
+    lastSeenLocation: 'Shibuya Crossing, Tokyo',
+    safeZoneStatus: 'outside_boundary',
   },
 ];
 
@@ -582,7 +602,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setIsAuthenticated(true);
           await saveSecureItem(STORAGE_AUTH_SESSION, 'demo_session_active');
           await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(INITIAL_PROFILE));
-          speakSenti('Welcome back, Sir.');
           return { success: true };
         }
         return { success: false, error: error.message };
@@ -608,7 +627,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsAuthenticated(true);
         await saveSecureItem(STORAGE_AUTH_SESSION, data.session?.access_token || 'authenticated');
         await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(restoredProfile));
-        speakSenti(`Welcome back, ${restoredProfile.salutation || restoredProfile.fullName}.`);
         return { success: true };
       }
 
@@ -665,7 +683,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await saveSecureItem(STORAGE_AUTH_SESSION, 'session_' + Date.now());
       await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(createdProfile));
 
-      speakSenti(`Account created successfully. Welcome to Sentia, ${createdProfile.salutation || createdProfile.fullName}.`);
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Registration failed.' };
@@ -679,7 +696,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await deleteSecureItem(STORAGE_AUTH_SESSION);
     setIsAuthenticated(false);
     setShowOnboardingTour(false);
-    speakSenti('Signed out of Sentia ecosystem.');
   };
 
   const demoLogin = async () => {
@@ -687,7 +703,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsAuthenticated(true);
     await saveSecureItem(STORAGE_AUTH_SESSION, 'demo_session_active');
     await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(INITIAL_PROFILE));
-    speakSenti('Executive demo credentials activated.');
   };
 
   // 10-Preset Engine
@@ -719,28 +734,27 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const activeBag = bags.find((b) => b.id === activeBagId) || bags[0];
 
-  // Auto-switch checklist presets based on day-of-week or calendar date
+  // Auto-switch checklist presets on launch based on day-of-week or calendar date
   useEffect(() => {
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon ...
     const dateStr = today.toISOString().split('T')[0];
 
     // Check if any preset has an explicit date match
-    const dateMatchedPreset = presets.find((p) => p.specificDate === dateStr);
-    if (dateMatchedPreset && dateMatchedPreset.id !== activePresetId) {
+    const dateMatchedPreset = INITIAL_PRESETS.find((p) => p.specificDate === dateStr);
+    if (dateMatchedPreset) {
       setActivePresetId(dateMatchedPreset.id);
       setActiveItems(dateMatchedPreset.items);
-      speakSenti(`Switched checklist to ${dateMatchedPreset.name} for today.`);
       return;
     }
 
     // Check if any preset is scheduled for today's day of week
-    const dayMatchedPreset = presets.find((p) => p.scheduledDays.includes(dayOfWeek));
-    if (dayMatchedPreset && dayMatchedPreset.id !== activePresetId) {
+    const dayMatchedPreset = INITIAL_PRESETS.find((p) => p.scheduledDays.includes(dayOfWeek));
+    if (dayMatchedPreset) {
       setActivePresetId(dayMatchedPreset.id);
       setActiveItems(dayMatchedPreset.items);
     }
-  }, [presets]);
+  }, []);
 
   // Lumbar heat timer countdown
   useEffect(() => {
@@ -788,13 +802,22 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
     setActiveBagId(bagId);
-    setBags((prev) =>
-      prev.map((bag) => {
-        if (bag.id === bagId) return { ...bag, role: 'primary' as const };
-        if (bag.role === 'primary') return { ...bag, role: 'secondary' as const };
-        return bag;
-      })
-    );
+    setBags((prev) => {
+      const target = prev.find((b) => b.id === bagId);
+      if (!target) return prev;
+      const others = prev.filter((b) => b.id !== bagId);
+      const updatedTarget: MultiDeviceBag = { ...target, role: 'primary' };
+      const updatedOthers = others.map((b) => ({
+        ...b,
+        role: (b.role === 'primary' ? 'secondary' : b.role) as DeviceRole,
+      }));
+      const reordered = [updatedTarget, ...updatedOthers];
+      saveSecureItem(
+        STORAGE_PAIRED_BAGS,
+        JSON.stringify(reordered.map((b) => ({ ...b, image: undefined })))
+      );
+      return reordered;
+    });
   };
 
   const pairNewBag = (
@@ -862,7 +885,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    speakSenti(`New device paired successfully. Welcome your ${newBag.name}.`);
     return true;
   };
 
@@ -938,7 +960,12 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // 10-Preset Custom Management
-  const createPreset = (name: string, iconName = 'briefcase', initialItems?: EssentialItem[]): boolean => {
+  const createPreset = (
+    name: string,
+    iconName = 'briefcase',
+    initialItems?: EssentialItem[],
+    schedule?: { days: number[]; alertTime?: string; specificDate?: string }
+  ): boolean => {
     if (presets.length >= 10) {
       Alert.alert('Preset Limit Reached', 'You can create up to 10 customized packing presets. Please edit or delete an existing preset.');
       return false;
@@ -949,10 +976,11 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       name: name.trim() || `Preset ${presets.length + 1}`,
       iconName,
       isDefault: presets.length === 0,
-      scheduledDays: [],
-      alertTime: '08:00 AM',
+      scheduledDays: schedule?.days || [],
+      alertTime: schedule?.alertTime || '08:00 AM',
+      specificDate: schedule?.specificDate || '',
       createdAt: new Date().toISOString(),
-      items: initialItems || [
+      items: initialItems && initialItems.length > 0 ? initialItems : [
         {
           id: `item-${Date.now()}-1`,
           user_id: 'user-01',
@@ -968,6 +996,8 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setPresets((prev) => [...prev, newPreset]);
+    setActivePresetId(newPreset.id);
+    setActiveItems(newPreset.items);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     return true;
   };
@@ -1008,12 +1038,16 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setDefaultPreset = (id: string) => {
     setDefaultPresetId(id);
-    setPresets((prev) =>
-      prev.map((p) => ({
-        ...p,
-        isDefault: p.id === id,
-      }))
-    );
+    setActivePresetId(id);
+    setPresets((prev) => {
+      const target = prev.find((p) => p.id === id);
+      const others = prev.filter((p) => p.id !== id);
+      if (!target) return prev;
+      const updatedTarget = { ...target, isDefault: true };
+      const updatedOthers = others.map((p) => ({ ...p, isDefault: false }));
+      setActiveItems(updatedTarget.items);
+      return [updatedTarget, ...updatedOthers];
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
@@ -1126,7 +1160,6 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setActiveItems((prev) => [...prev, ...newItems]);
     updatePreset(activePresetId, { items: [...activeItems, ...newItems] });
-    speakSenti('Cycle care essentials added to your active bag checklist.');
     Alert.alert('Bag Synced', '4 personal care items have been discreetly added to your active bag checklist.');
   };
 
@@ -1136,10 +1169,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const nextActive = !prev.lumbarHeatActive;
       HardwareGateway.sendCommand(activeBagId, nextActive ? 'HEAT_ON' : 'HEAT_OFF');
       if (nextActive) {
-        speakSenti('Lumbar thermal pouch activated at 40 degrees Celsius.');
         Alert.alert('Lumbar Warmth Activated', 'Your bag lower back pouch is warming to 40 degrees Celsius for 15 minutes to relieve discomfort.');
-      } else {
-        speakSenti('Lumbar thermal pouch turned off.');
       }
       return {
         ...prev,
@@ -1251,6 +1281,44 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
+  const addGroupGearItem = (groupId: string, title: string, category: string, assignedToName: string) => {
+    const newItem: GroupGearItem = {
+      id: `gear-${Date.now()}`,
+      title: title.trim(),
+      assignedToName: assignedToName.trim() || 'Unassigned',
+      isPacked: false,
+      category: category || 'gear',
+    };
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === groupId) {
+          return {
+            ...g,
+            gearChecklist: [...g.gearChecklist, newItem],
+          };
+        }
+        return g;
+      })
+    );
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+  };
+
+  const removeGroupGearItem = (groupId: string, itemId: string) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === groupId) {
+          return {
+            ...g,
+            gearChecklist: g.gearChecklist.filter((item) => item.id !== itemId),
+          };
+        }
+        return g;
+      })
+    );
+  };
+
   const addToCart = (product: BoutiqueProduct, qty = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
@@ -1289,6 +1357,10 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const cartCount = cart.reduce((acc, curr) => acc + curr.quantity, 0);
   const cartTotalUsd = cart.reduce((acc, curr) => acc + curr.product.priceUsd * curr.quantity, 0);
+  const cartTotalInr = cart.reduce(
+    (acc, curr) => acc + (curr.product.priceInr || curr.product.priceUsd * 83) * curr.quantity,
+    0
+  );
 
   return (
     <CircleContext.Provider
@@ -1308,6 +1380,7 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         cart,
         cartCount,
         cartTotalUsd,
+        cartTotalInr,
         profile,
         toggleMode,
         toggleGhostMode,
@@ -1323,6 +1396,8 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         unblockUser,
         createGroup,
         toggleGroupGearPacked,
+        addGroupGearItem,
+        removeGroupGearItem,
         addToCart,
         removeFromCart,
         clearCart,

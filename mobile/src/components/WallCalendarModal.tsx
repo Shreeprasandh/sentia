@@ -281,12 +281,12 @@ export const WallCalendarModal: React.FC<WallCalendarModalProps> = ({ visible, o
                       </Text>
                     </View>
 
-                    {/* Indicator Dots */}
+                    {/* Indicator Dots: Decoupled Cycle Ring vs Event Dot */}
                     <View style={styles.indicatorRow}>
-                      {/* Cycle Care Phase Dot */}
+                      {/* Cycle Care Phase Indicator */}
                       {cycle && (
                         <View
-                          style={[styles.indicatorDot, { backgroundColor: cycle.color }]}
+                          style={[styles.cycleIndicatorRing, { borderColor: cycle.color }]}
                         />
                       )}
                       {/* Scheduled Event Dot */}
@@ -598,6 +598,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderLight,
     marginBottom: Spacing.lg,
+    minHeight: 260,
   },
   cell: {
     width: '14.28%',
@@ -642,13 +643,23 @@ const styles = StyleSheet.create({
   },
   indicatorRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 3,
+    height: 6,
     marginTop: 2,
   },
   indicatorDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
+  },
+  cycleIndicatorRing: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 1.2,
+    backgroundColor: 'transparent',
   },
   agendaCard: {
     backgroundColor: '#FFFFFF',

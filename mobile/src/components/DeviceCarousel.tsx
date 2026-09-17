@@ -10,6 +10,7 @@ import {
   Pressable,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Alert,
 } from 'react-native';
 import {
   Lock,
@@ -50,6 +51,58 @@ export const DeviceCarousel: React.FC = () => {
       try {
         Haptics.selectionAsync();
       } catch {}
+    }
+  };
+
+  const handleSetPrimaryWithConfirmation = (bag: MultiDeviceBag) => {
+    Alert.alert(
+      'Set as Primary Device?',
+      `Make "${bag.name}" your primary smart device? Quick actions, hardware alerts, and dashboard widgets will prioritize this bag.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: () => {
+            setPrimaryBag(bag.id);
+            setActiveIndex(0);
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnpairWithConfirmation = (bag: MultiDeviceBag) => {
+    Alert.alert(
+      'Unpair Device',
+      `Are you sure you want to disconnect and unpair "${bag.name}"? It can be re-bonded anytime.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unpair',
+          style: 'destructive',
+          onPress: () => removeBag(bag.id),
+        },
+      ]
+    );
+  };
+
+  const handleToggleConnectionWithConfirmation = (bag: MultiDeviceBag) => {
+    if (bag.isConnected) {
+      Alert.alert(
+        'Disconnect Device?',
+        `Disconnect Bluetooth connection with "${bag.name}"? Live load cell telemetry, tamper sensing, and proximity alerts will be suspended.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Disconnect',
+            style: 'destructive',
+            onPress: () => toggleBagConnection(bag.id),
+          },
+        ]
+      );
+    } else {
+      toggleBagConnection(bag.id);
     }
   };
 
@@ -147,7 +200,7 @@ export const DeviceCarousel: React.FC = () => {
               styles.connectionToggleBtn,
               item.isConnected ? styles.connBtnConnected : styles.connBtnDisconnected,
             ]}
-            onPress={() => toggleBagConnection(item.id)}
+            onPress={() => handleToggleConnectionWithConfirmation(item)}
           >
             <Power size={13} color={item.isConnected ? Colors.primary : Colors.textTertiary} />
             <Text
@@ -164,7 +217,7 @@ export const DeviceCarousel: React.FC = () => {
             <View style={styles.secondaryActions}>
               <TouchableOpacity
                 style={styles.setPrimaryButton}
-                onPress={() => setPrimaryBag(item.id)}
+                onPress={() => handleSetPrimaryWithConfirmation(item)}
                 activeOpacity={0.8}
               >
                 <Sparkles size={13} color={Colors.primary} style={{ marginRight: 4 }} />
@@ -173,7 +226,7 @@ export const DeviceCarousel: React.FC = () => {
 
               <TouchableOpacity
                 style={styles.unpairBtn}
-                onPress={() => removeBag(item.id)}
+                onPress={() => handleUnpairWithConfirmation(item)}
               >
                 <Trash2 size={13} color="#B91C1C" />
               </TouchableOpacity>
@@ -197,12 +250,17 @@ export const DeviceCarousel: React.FC = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderBagCard}
         horizontal
-        pagingEnabled
         showsHorizontalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         snapToInterval={CARD_WIDTH}
+        snapToAlignment="start"
         decelerationRate="fast"
+        getItemLayout={(_, index) => ({
+          length: CARD_WIDTH,
+          offset: CARD_WIDTH * index,
+          index,
+        })}
       />
 
       {/* Pagination Row with + Pair Bag Trigger */}

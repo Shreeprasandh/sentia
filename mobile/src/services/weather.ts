@@ -96,3 +96,63 @@ export async function getSmartWeather(lat: number = 13.0827, lng: number = 80.27
     return inMemoryWeatherCache || fallback;
   }
 }
+
+export interface WeatherPackingInsight {
+  type: 'rain' | 'sun' | 'cold' | 'clear';
+  suggestedItem: string;
+  category: 'electronics' | 'hygiene' | 'documents' | 'apparel' | 'health' | 'other';
+  headline: string;
+  description: string;
+  badgeLabel: string;
+}
+
+export function getWeatherPackingInsight(weather: WeatherData): WeatherPackingInsight {
+  const isRain =
+    weather.rainProbabilityPct >= 40 ||
+    weather.condition.toLowerCase().includes('rain') ||
+    weather.condition.toLowerCase().includes('drizzle') ||
+    weather.condition.toLowerCase().includes('thunder');
+
+  if (isRain) {
+    return {
+      type: 'rain',
+      suggestedItem: 'Compact Windproof Umbrella',
+      category: 'other',
+      headline: `Rain Forecasted Tomorrow • ${weather.rainProbabilityPct}% Probability`,
+      description: `Downpour predicted in ${weather.city}. Senti recommends packing your windproof umbrella to prevent moisture damage.`,
+      badgeLabel: 'RAIN ADVISORY',
+    };
+  }
+
+  if (weather.tempC >= 30 || weather.uvIndex >= 6) {
+    return {
+      type: 'sun',
+      suggestedItem: 'Broad-Spectrum Sunscreen & Sunglasses',
+      category: 'health',
+      headline: `High Solar UV & Heat • ${weather.tempC}°C`,
+      description: `Intense solar UV levels forecasted in ${weather.city}. Carry sunscreen and polarized eyewear for protection.`,
+      badgeLabel: 'SOLAR PROTECTION',
+    };
+  }
+
+  if (weather.tempC <= 16) {
+    return {
+      type: 'cold',
+      suggestedItem: 'Thermal Packable Windbreaker',
+      category: 'apparel',
+      headline: `Cold Breeze Advisory • ${weather.tempC}°C`,
+      description: `Chilly winds forecasted in ${weather.city}. Pack an insulated outer layer in your bag.`,
+      badgeLabel: 'THERMAL LAYER',
+    };
+  }
+
+  return {
+    type: 'clear',
+    suggestedItem: 'Sentia Smart Hydration Vessel',
+    category: 'health',
+    headline: `Temperate Conditions • ${weather.tempC}°C`,
+    description: `Clear skies in ${weather.city}. Standard daily carry manifest is departure-ready.`,
+    badgeLabel: 'IDEAL CONDITIONS',
+  };
+}
+

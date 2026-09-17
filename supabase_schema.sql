@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT UNIQUE NOT NULL,
     mobile_number TEXT,
     country TEXT,
+    date_of_birth DATE,
+    address TEXT,
     profile_image TEXT,
     language TEXT DEFAULT 'en',
     lifestyle_preference TEXT CHECK (lifestyle_preference IN ('student', 'working_professional', 'traveller', 'general_lifestyle')) DEFAULT 'general_lifestyle',

@@ -10,6 +10,7 @@ import {
   RefreshControl,
   StatusBar,
   Platform,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -32,6 +33,9 @@ import {
   Wind,
   AlertTriangle,
   Flame,
+  ArrowRight,
+  BookOpen,
+  X,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -54,6 +58,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showStudyModal, setShowStudyModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
@@ -432,15 +437,24 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           </TouchableOpacity>
         </View>
 
-        {/* Tutorial Tour Trigger Button */}
+        {/* Architectural Study Monograph Trigger */}
         <TouchableOpacity
-          style={styles.tourPromptButton}
-          onPress={() => setShowTour(true)}
+          style={styles.studyPromptButton}
+          onPress={() => setShowStudyModal(true)}
           activeOpacity={0.85}
         >
-          <Text style={styles.tourPromptText}>
-            First time? Take a 30-second tour with Senti →
-          </Text>
+          <View style={styles.studyPromptIconBadge}>
+            <BookOpen size={18} color={Colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.studyPromptTitle}>
+              Sentia Architectural Study & Craft
+            </Text>
+            <Text style={styles.studyPromptSubtitle}>
+              Explore load cells, battery core & sensor schematic
+            </Text>
+          </View>
+          <ArrowRight size={16} color={Colors.primary} />
         </TouchableOpacity>
       </ScrollView>
 
@@ -457,11 +471,88 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
         onClose={() => setIsCalendarOpen(false)}
       />
 
-      {/* Onboarding Tour Modal */}
-      <OnboardingTour
-        visible={showTour}
-        onComplete={() => setShowTour(false)}
-      />
+      {/* Architectural Study & Schematics Monograph Modal */}
+      <Modal visible={showStudyModal} animationType="slide" transparent>
+        <View style={styles.studyModalOverlay}>
+          <View style={styles.studyModalContent}>
+            <View style={styles.studyModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.studyModalBadge}>ENGINEERING MONOGRAPH</Text>
+                <Text style={styles.studyModalTitle}>Sentia Architectural Study</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowStudyModal(false)}
+                style={styles.studyCloseBtn}
+                activeOpacity={0.8}
+              >
+                <X size={20} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.studyScrollBody}>
+              {/* Exploded Hero Schematic Diagram */}
+              <View style={styles.studySchematicCard}>
+                <Image
+                  source={require('../../assets/brand/image2.png')}
+                  style={styles.studySchematicImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.studySchematicCaption}>
+                  Figure 1.0: Exploded Hardware Assembly & Subsystem Topology
+                </Text>
+              </View>
+
+              {/* Subsystem 1: Ballistic Shell & Biometrics */}
+              <View style={styles.studySectionCard}>
+                <Text style={styles.studySectionHeading}>1. IPX5 Ballistic Emerald Weave & Biometrics</Text>
+                <Text style={styles.studySectionBody}>
+                  Constructed from high-density ballistic nylon treated with hydrophobic polyurethane coating. Zippers feature magnetic water-tight compression seals, integrated directly with the capacitive fingerprint reader and TSA BLE motorized latch mechanism.
+                </Text>
+              </View>
+
+              {/* Subsystem 2: 4-Point Load Cell Array */}
+              <View style={styles.studySectionCard}>
+                <Text style={styles.studySectionHeading}>2. Dual 4-Gauge Load Cell Array</Text>
+                <Text style={styles.studySectionBody}>
+                  Embedded directly within the load-bearing harness anchor plates. Measures gross pack weight at ±50g precision in real time, communicating via SPI bus to prevent spinal strain and trigger airline weight threshold alerts.
+                </Text>
+              </View>
+
+              {/* Subsystem 3: Modular 15,000mAh Lithium-Polymer Energy Core */}
+              <View style={styles.studySectionCard}>
+                <Text style={styles.studySectionHeading}>3. High-Density Power Cell & Thermal Insulation</Text>
+                <Text style={styles.studySectionBody}>
+                  A 15,000mAh (under 100Wh) modular battery core compliant with FAA, EASA, and IATA carry-on aviation regulations. Powers the 40°C lumbar heating module, internal UV-C sterilizers, and ambient telemetry transceivers.
+                </Text>
+              </View>
+
+              {/* Subsystem 4: Proximity Radar & UWB Beacon Array */}
+              <View style={styles.studySectionCard}>
+                <Text style={styles.studySectionHeading}>4. BLE 5.3 & Ultra-Wideband Acoustic Transceiver</Text>
+                <Text style={styles.studySectionBody}>
+                  Tri-axial accelerometer and Bluetooth Low Energy 5.3 transceiver broadcasting encrypted proximity telemetry. Detects sub-meter range, unauthorized movement, and geofence departures without draining phone battery.
+                </Text>
+              </View>
+
+              {/* Subsystem 5: Senti Autonomous Companion Neural Core */}
+              <View style={styles.studySectionCard}>
+                <Text style={styles.studySectionHeading}>5. Senti Autonomous Companion Neural Core</Text>
+                <Text style={styles.studySectionBody}>
+                  On-device contextual intelligence analyzing packing habits, weather forecasts, menstrual cycle horizons, and travel schedules to ensure zero-friction daily operations.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.studyDoneButton}
+              onPress={() => setShowStudyModal(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.studyDoneText}>Close Architectural Study</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -864,14 +955,139 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     lineHeight: 15,
   },
-  tourPromptButton: {
-    paddingVertical: 14,
+  studyPromptButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FAF3E7',
+    borderWidth: 1.5,
+    borderColor: '#EEDCC0',
+    borderRadius: 20,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: 12,
+  },
+  studyPromptIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FAF6EE',
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studyPromptTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  studyPromptSubtitle: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  studyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 31, 26, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  studyModalContent: {
+    width: '100%',
+    maxHeight: '88%',
+    backgroundColor: Colors.canvas,
+    borderRadius: 24,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    ...Shadows.floating,
+  },
+  studyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.cardAccentBorder,
+  },
+  studyModalBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 1,
+  },
+  studyModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginTop: 2,
+  },
+  studyCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.canvasElevated,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studyScrollBody: {
+    paddingVertical: Spacing.md,
+  },
+  studySchematicCard: {
+    alignItems: 'center',
+    backgroundColor: '#FAF6EE',
+    borderRadius: 18,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    marginBottom: Spacing.md,
+  },
+  studySchematicImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+  },
+  studySchematicCaption: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  studySectionCard: {
+    backgroundColor: Colors.canvasElevated,
+    borderRadius: 16,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    marginBottom: Spacing.sm,
+  },
+  studySectionHeading: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  studySectionBody: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  studyDoneButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 13,
+    borderRadius: BorderRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: Spacing.sm,
   },
-  tourPromptText: {
+  studyDoneText: {
     fontSize: 13,
-    color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#FAF6EE',
   },
 });

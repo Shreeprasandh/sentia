@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -29,10 +30,16 @@ import {
   MapPin,
   Phone,
   Save,
+  Calendar,
+  AlertTriangle,
+  ChevronDown,
+  Navigation,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { useCircle } from '../context/CircleContext';
+import { CountryCodePickerModal } from '../components/CountryCodePickerModal';
+import { detectCurrentAddress } from '../services/locationService';
 
 interface SettingsAndLegalScreenProps {
   onBack: () => void;
@@ -40,12 +47,24 @@ interface SettingsAndLegalScreenProps {
 
 export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, signOut } = useCircle();
+  const { profile, updateProfile, signOut, triggerEmergencySOS } = useCircle();
 
   const [fullName, setFullName] = useState(profile.fullName || 'Shree Prasandh');
   const [salutation, setSalutation] = useState(profile.salutation || 'Sir');
+  const [birthday, setBirthday] = useState(profile.birthday || profile.dateOfBirth || '2001-08-14');
   const [shippingAddress, setShippingAddress] = useState(profile.shippingAddress || '');
-  const [phone, setPhone] = useState(profile.phone || '');
+
+  // Parse dial code and raw phone number
+  const initialPhone = profile.phone || '+91 98401 23456';
+  const matchedDial = initialPhone.startsWith('+') ? initialPhone.split(' ')[0] : '+91';
+  const initialNumber = initialPhone.replace(matchedDial, '').trim();
+
+  const [selectedDialCode, setSelectedDialCode] = useState(matchedDial || '+91');
+  const [selectedCountryIso, setSelectedCountryIso] = useState(matchedDial === '+91' ? 'IN' : 'GL');
+  const [phoneNumber, setPhoneNumber] = useState(initialNumber);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [locatingAddress, setLocatingAddress] = useState(false);
+
   const [guardianName, setGuardianName] = useState(profile.guardianName || '');
   const [guardianPhone, setGuardianPhone] = useState(profile.guardianPhone || '');
   const [guardianEmail, setGuardianEmail] = useState(profile.guardianEmail || '');
@@ -58,23 +77,70 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
 
+  const handleDetectCurrentLocation = async () => {
+    setLocatingAddress(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const result = await detectCurrentAddress();
+    setLocatingAddress(false);
+    if (result.success && result.formattedAddress) {
+      setShippingAddress(result.formattedAddress);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+    } else {
+      Alert.alert('Location Auto-Fill', result.error || 'Could not retrieve current address.');
+    }
+  };
+
   const handleSaveProfile = () => {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
+    const fullPhone = phoneNumber.trim() ? `${selectedDialCode} ${phoneNumber.trim()}` : '';
     updateProfile({
       fullName: fullName.trim(),
       name: fullName.trim(),
       salutation: salutation.trim(),
+      birthday: birthday.trim(),
+      dateOfBirth: birthday.trim(),
       shippingAddress: shippingAddress.trim(),
-      phone: phone.trim(),
+      phone: fullPhone,
       guardianName: guardianName.trim(),
       guardianPhone: guardianPhone.trim(),
       guardianEmail: guardianEmail.trim(),
     });
     Alert.alert(
       'Profile Updated',
-      'Your identity, shipping address, and emergency guardian details have been saved securely.'
+      'Your identity, birthday, shipping address, and emergency guardian details have been saved securely.'
+    );
+  };
+
+  const handleTriggerSOS = () => {
+    Alert.alert(
+      'Emergency SOS Dispatch',
+      `Broadcast an emergency distress alert to ${guardianName || 'your registered emergency guardian'} with real-time hardware telemetry and GPS beacon coordinates?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Dispatch SOS',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              const res = await triggerEmergencySOS();
+              if (res.success) {
+                Alert.alert('SOS Dispatched', `Emergency distress alert successfully transmitted to ${profile.guardianEmail || 'guardian'}.`);
+              } else {
+                Alert.alert('SOS Alert', 'Distress beacon activated locally.');
+              }
+            } catch {
+              Alert.alert('SOS Alert', 'Distress beacon activated locally.');
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -203,13 +269,45 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
             </View>
           </View>
 
+          {/* Date of Birth */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Date of Birth</Text>
+            <View style={styles.inputWrapper}>
+              <Calendar size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.textInput}
+                value={birthday}
+                onChangeText={setBirthday}
+                placeholder="YYYY-MM-DD (e.g. 2001-08-14)"
+                placeholderTextColor={Colors.textTertiary}
+              />
+            </View>
+          </View>
+
           {/* Shipping Address */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Boutique Shipping & Delivery Address</Text>
-            <View style={[styles.inputWrapper, { alignItems: 'flex-start', paddingTop: 10 }]}>
-              <MapPin size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <Text style={styles.inputLabel}>Boutique Shipping & Delivery Address</Text>
+              <TouchableOpacity
+                style={styles.useLocationBtn}
+                onPress={handleDetectCurrentLocation}
+                disabled={locatingAddress}
+                activeOpacity={0.8}
+              >
+                {locatingAddress ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <>
+                    <Navigation size={12} color={Colors.primary} style={{ marginRight: 4 }} />
+                    <Text style={styles.useLocationBtnText}>Use Current Location</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.inputWrapper, { alignItems: 'flex-start', paddingTop: 12, minHeight: 68 }]}>
+              <MapPin size={18} color={Colors.primary} style={{ marginRight: 10, marginTop: 2 }} />
               <TextInput
-                style={[styles.textInput, { height: 50, textAlignVertical: 'top' }]}
+                style={[styles.textInput, { height: 48, textAlignVertical: 'top', paddingTop: 0 }]}
                 value={shippingAddress}
                 onChangeText={setShippingAddress}
                 placeholder="Residence or office shipping address"
@@ -222,16 +320,29 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           {/* Phone */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Mobile Phone Number</Text>
-            <View style={styles.inputWrapper}>
-              <Phone size={18} color={Colors.primary} style={{ marginRight: 10 }} />
-              <TextInput
-                style={styles.textInput}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="+1 (555) 000-0000"
-                placeholderTextColor={Colors.textTertiary}
-                keyboardType="phone-pad"
-              />
+            <View style={styles.phoneInputRow}>
+              <TouchableOpacity
+                style={styles.countryPickerBtn}
+                onPress={() => setShowCountryPicker(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.countryPillBadge}>
+                  <Text style={styles.countryPillText}>{selectedCountryIso}</Text>
+                </View>
+                <Text style={styles.countryCodeText}>{selectedDialCode}</Text>
+                <ChevronDown size={14} color={Colors.textTertiary} style={{ marginLeft: 3 }} />
+              </TouchableOpacity>
+
+              <View style={[styles.inputWrapper, { flex: 1, marginLeft: 8 }]}>
+                <TextInput
+                  style={styles.textInput}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  placeholder="98401 23456"
+                  placeholderTextColor={Colors.textTertiary}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
           </View>
 
@@ -344,7 +455,7 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuRow, { borderBottomWidth: 0 }]}
+            style={styles.menuRow}
             onPress={handleDeleteAccount}
             activeOpacity={0.7}
           >
@@ -354,6 +465,16 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
                 Permanently Delete Account & Data
               </Text>
             </View>
+          </TouchableOpacity>
+
+          {/* Emergency SOS Quick Dispatch */}
+          <TouchableOpacity
+            style={[styles.sosProfileButton, { marginTop: Spacing.md }]}
+            onPress={handleTriggerSOS}
+            activeOpacity={0.85}
+          >
+            <AlertTriangle size={16} color="#B91C1C" />
+            <Text style={styles.sosProfileButtonText}>Trigger Emergency SOS Dispatch</Text>
           </TouchableOpacity>
         </View>
 
@@ -383,6 +504,33 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           <Text style={styles.versionText}>
             Firmware v2.4.1 • Mobile App v1.0.0 (Expo SDK 52)
           </Text>
+
+          {/* Micro Legal Links */}
+          <View style={styles.footerLegalRow}>
+            <TouchableOpacity
+              onPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } catch {}
+                setPrivacyModalVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.footerLegalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerLegalDot}>•</Text>
+            <TouchableOpacity
+              onPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } catch {}
+                setTermsModalVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.footerLegalLink}>Terms & Conditions</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -485,6 +633,16 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           </View>
         </View>
       </Modal>
+
+      <CountryCodePickerModal
+        visible={showCountryPicker}
+        selectedCode={selectedDialCode}
+        onSelect={(item) => {
+          setSelectedDialCode(item.code);
+          setSelectedCountryIso(item.iso);
+        }}
+        onClose={() => setShowCountryPicker(false)}
+      />
     </View>
   );
 };
@@ -559,6 +717,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  countryPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.canvas,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    height: 48,
+  },
+  countryPillBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: Colors.canvasWarm,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    marginRight: 6,
+  },
+  countryPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  countryCodeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  useLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardAccent,
+    borderWidth: 1,
+    borderColor: Colors.cardAccentBorder,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  useLocationBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
   textInput: {
     flex: 1,
     fontSize: 14,
@@ -582,6 +789,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FAF6EE',
+  },
+  sosProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingVertical: 12,
+    borderRadius: BorderRadius.pill,
+    marginTop: Spacing.sm,
+  },
+  sosProfileButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FAF6EE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  verifiedBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 0.5,
   },
   menuRow: {
     flexDirection: 'row',
@@ -621,6 +862,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textTertiary,
     marginTop: 4,
+  },
+  footerLegalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  footerLegalLink: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  footerLegalDot: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginHorizontal: 8,
   },
   legalModalOverlay: {
     flex: 1,
