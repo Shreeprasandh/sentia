@@ -21,6 +21,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { HardwareGateway } from '../services/hardwareGateway';
+import { useCircle } from '../context/CircleContext';
 
 interface BagRadarScreenProps {
   onBack: () => void;
@@ -28,8 +29,15 @@ interface BagRadarScreenProps {
 
 export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
+  const { activeBag, activeTelemetry } = useCircle();
   const [isBeaconActive, setIsBeaconActive] = useState(false);
   const [geofenceArmed, setGeofenceArmed] = useState(true);
+
+  const rssi = activeTelemetry.ble_rssi || -58;
+  const estimatedDistanceMeters = Math.max(
+    0.4,
+    Math.round(Math.pow(10, (-45 - rssi) / 20) * 10) / 10
+  );
 
   // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
   const topInset = Math.max(
@@ -43,7 +51,7 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
     } catch {}
 
     setIsBeaconActive(true);
-    await HardwareGateway.sendCommand('bag-01', 'SOUND_ALARM');
+    await HardwareGateway.sendCommand(activeBag.id, 'SOUND_ALARM');
 
     setTimeout(() => {
       setIsBeaconActive(false);
@@ -84,13 +92,26 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
             </View>
           </View>
 
-          <Text style={styles.radarDistance}>3.2 m</Text>
-          <Text style={styles.radarSubtext}>Bag is in immediate Bluetooth range</Text>
+          <Text style={styles.radarDistance}>{estimatedDistanceMeters} m</Text>
+          <Text style={styles.radarSubtext}>
+            {rssi > -62
+              ? `${activeBag.name} is in immediate Bluetooth range`
+              : rssi > -75
+              ? `${activeBag.name} is nearby within room perimeter`
+              : `${activeBag.name} is at the perimeter of BLE range`}
+          </Text>
 
           {/* Signal Pill */}
           <View style={styles.signalPill}>
-            <View style={styles.greenDot} />
-            <Text style={styles.signalText}>RSSI: -58 dBm • Strong Signal</Text>
+            <View
+              style={[
+                styles.greenDot,
+                { backgroundColor: rssi > -70 ? Colors.statusSuccess : Colors.statusWarning },
+              ]}
+            />
+            <Text style={styles.signalText}>
+              RSSI: {rssi} dBm • {rssi > -65 ? 'Strong Signal' : rssi > -78 ? 'Moderate Signal' : 'Weak Signal'}
+            </Text>
           </View>
         </View>
 
@@ -101,8 +122,8 @@ export const BagRadarScreen: React.FC<BagRadarScreenProps> = ({ onBack }) => {
               <MapPin size={20} color={Colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.locationTitle}>Last Seen Position</Text>
-              <Text style={styles.locationAddress}>The Glasshouse, 100ft Road, Indiranagar</Text>
+              <Text style={styles.locationTitle}>{activeBag.name}</Text>
+              <Text style={styles.locationAddress}>{activeBag.model} • {activeBag.lastSeenText}</Text>
             </View>
           </View>
 

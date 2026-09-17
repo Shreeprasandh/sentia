@@ -48,7 +48,7 @@ export const SentiCompanion: React.FC<SentiCompanionProps> = ({
   const breatheAnim = useRef(new Animated.Value(1)).current;
 
   // Inactivity timer ref
-  const sleepTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Start organic breathing animation
   useEffect(() => {
@@ -106,9 +106,23 @@ export const SentiCompanion: React.FC<SentiCompanionProps> = ({
 
   // Monitor external mood or speech bubble changes
   useEffect(() => {
+    setCurrentMood(initialMood);
+    if (initialMood !== '13_sleepy') {
+      setIsAsleep(false);
+      Animated.timing(opacityAnim, {
+        toValue: 1.0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [initialMood]);
+
+  useEffect(() => {
     if (speechBubbleText) {
       setBubbleMessage(speechBubbleText);
       resetSleepTimer();
+    } else {
+      setBubbleMessage(null);
     }
   }, [speechBubbleText]);
 

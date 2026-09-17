@@ -25,9 +25,14 @@ import {
   Trash2,
   CheckCircle,
   ExternalLink,
+  LogOut,
+  MapPin,
+  Phone,
+  Save,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
+import { useCircle } from '../context/CircleContext';
 
 interface SettingsAndLegalScreenProps {
   onBack: () => void;
@@ -35,7 +40,16 @@ interface SettingsAndLegalScreenProps {
 
 export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
-  const [userName, setUserName] = useState('Shree Prasandh');
+  const { profile, updateProfile, signOut } = useCircle();
+
+  const [fullName, setFullName] = useState(profile.fullName || 'Shree Prasandh');
+  const [salutation, setSalutation] = useState(profile.salutation || 'Sir');
+  const [shippingAddress, setShippingAddress] = useState(profile.shippingAddress || '');
+  const [phone, setPhone] = useState(profile.phone || '');
+  const [guardianName, setGuardianName] = useState(profile.guardianName || '');
+  const [guardianPhone, setGuardianPhone] = useState(profile.guardianPhone || '');
+  const [guardianEmail, setGuardianEmail] = useState(profile.guardianEmail || '');
+
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
@@ -43,6 +57,47 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
+
+  const handleSaveProfile = () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    updateProfile({
+      fullName: fullName.trim(),
+      name: fullName.trim(),
+      salutation: salutation.trim(),
+      shippingAddress: shippingAddress.trim(),
+      phone: phone.trim(),
+      guardianName: guardianName.trim(),
+      guardianPhone: guardianPhone.trim(),
+      guardianEmail: guardianEmail.trim(),
+    });
+    Alert.alert(
+      'Profile Updated',
+      'Your identity, shipping address, and emergency guardian details have been saved securely.'
+    );
+  };
+
+  const handleSignOut = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    Alert.alert(
+      'Sign Out of Sentia',
+      'Are you sure you want to sign out of this device? Your local session token will be cleared from SecureStore.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            onBack();
+          },
+        },
+      ]
+    );
+  };
 
   // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
   const topInset = Math.max(
@@ -118,46 +173,125 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
         {/* Profile Card */}
         <Text style={styles.sectionHeader}>Profile & Credentials</Text>
         <View style={styles.card}>
-          {/* Name Field */}
+          {/* Full Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Full Name / Companion Salutation</Text>
+            <Text style={styles.inputLabel}>Full Name</Text>
             <View style={styles.inputWrapper}>
               <User size={18} color={Colors.primary} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.textInput}
-                value={userName}
-                onChangeText={setUserName}
+                value={fullName}
+                onChangeText={setFullName}
                 placeholder="Enter your name"
                 placeholderTextColor={Colors.textTertiary}
               />
             </View>
           </View>
 
-          {/* Password with Visibility Toggle */}
+          {/* Salutation */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Encrypted Access Password</Text>
+            <Text style={styles.inputLabel}>Companion Salutation (e.g. Sir, Madam, Lord, Dr.)</Text>
             <View style={styles.inputWrapper}>
-              <Lock size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <User size={18} color={Colors.primary} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.textInput}
-                value={showPassword ? 'SentiaSafe#2026' : password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
+                value={salutation}
+                onChangeText={setSalutation}
+                placeholder="Preferred salutation"
                 placeholderTextColor={Colors.textTertiary}
               />
-              <TouchableOpacity
-                onPress={togglePasswordVisibility}
-                style={styles.visibilityButton}
-                accessibilityLabel="Toggle password visibility"
-              >
-                {showPassword ? (
-                  <EyeOff size={18} color={Colors.textPrimary} />
-                ) : (
-                  <Eye size={18} color={Colors.textPrimary} />
-                )}
-              </TouchableOpacity>
             </View>
           </View>
+
+          {/* Shipping Address */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Boutique Shipping & Delivery Address</Text>
+            <View style={[styles.inputWrapper, { alignItems: 'flex-start', paddingTop: 10 }]}>
+              <MapPin size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={[styles.textInput, { height: 50, textAlignVertical: 'top' }]}
+                value={shippingAddress}
+                onChangeText={setShippingAddress}
+                placeholder="Residence or office shipping address"
+                placeholderTextColor={Colors.textTertiary}
+                multiline
+              />
+            </View>
+          </View>
+
+          {/* Phone */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Mobile Phone Number</Text>
+            <View style={styles.inputWrapper}>
+              <Phone size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.textInput}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+1 (555) 000-0000"
+                placeholderTextColor={Colors.textTertiary}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </View>
+
+          {/* Emergency Guardian Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Emergency SOS Guardian Contact</Text>
+            <View style={styles.inputWrapper}>
+              <Shield size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.textInput}
+                value={guardianName}
+                onChangeText={setGuardianName}
+                placeholder="Guardian name"
+                placeholderTextColor={Colors.textTertiary}
+              />
+            </View>
+          </View>
+
+          {/* Guardian Phone */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Guardian Phone Relay</Text>
+            <View style={styles.inputWrapper}>
+              <Phone size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.textInput}
+                value={guardianPhone}
+                onChangeText={setGuardianPhone}
+                placeholder="Guardian phone number"
+                placeholderTextColor={Colors.textTertiary}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </View>
+
+          {/* Guardian Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Guardian Email Relay</Text>
+            <View style={styles.inputWrapper}>
+              <Mail size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.textInput}
+                value={guardianEmail}
+                onChangeText={setGuardianEmail}
+                placeholder="Guardian email address"
+                placeholderTextColor={Colors.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* Save Profile Button */}
+          <TouchableOpacity
+            style={styles.saveProfileButton}
+            onPress={handleSaveProfile}
+            activeOpacity={0.85}
+          >
+            <Save size={16} color="#FAF6EE" />
+            <Text style={styles.saveProfileButtonText}>Save Profile & Address Details</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Security & Data Protection */}
@@ -195,6 +329,17 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
             <View style={styles.menuLeft}>
               <Download size={18} color={Colors.primary} />
               <Text style={styles.menuText}>Export Telemetry Archive (JSON)</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuLeft}>
+              <LogOut size={18} color={Colors.primary} />
+              <Text style={styles.menuText}>Sign Out of Sentia</Text>
             </View>
           </TouchableOpacity>
 
@@ -421,6 +566,22 @@ const styles = StyleSheet.create({
   },
   visibilityButton: {
     padding: 4,
+  },
+  saveProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.pill,
+    marginTop: Spacing.sm,
+    ...Shadows.subtle,
+  },
+  saveProfileButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FAF6EE',
   },
   menuRow: {
     flexDirection: 'row',

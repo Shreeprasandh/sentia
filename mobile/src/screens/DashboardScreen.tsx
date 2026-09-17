@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,10 @@ import {
   Calendar,
   Users,
   ShoppingBag,
+  Scale,
+  Wind,
+  AlertTriangle,
+  Flame,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -46,36 +50,41 @@ interface DashboardScreenProps {
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) => {
   const insets = useSafeAreaInsets();
-  const { calendarEvents } = useCircle();
-  const [isLocked, setIsLocked] = useState(true);
+  const { calendarEvents, activeTelemetry, activeBag } = useCircle();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
+  // Dynamic Senti emotion and anomaly awareness reacting to live hardware state
+  const { sentiMood, sentiSpeech } = useMemo(() => {
+    if (activeTelemetry.sos_triggered) {
+      return { sentiMood: '11_surprised' as const, sentiSpeech: 'Emergency SOS Active!' };
+    }
+    if (activeTelemetry.tamper_detected) {
+      return { sentiMood: '15_angry' as const, sentiSpeech: 'Movement detected!' };
+    }
+    if (activeTelemetry.is_locked && !activeTelemetry.zipper_closed) {
+      return { sentiMood: '12_confused' as const, sentiSpeech: 'Zipper breach! Bag is locked.' };
+    }
+    if (activeTelemetry.internal_temp_c >= 40.0) {
+      return { sentiMood: '14_tired' as const, sentiSpeech: 'High internal heat detected.' };
+    }
+    if (activeTelemetry.battery_level <= 15 && !activeTelemetry.is_charging) {
+      return { sentiMood: '14_tired' as const, sentiSpeech: 'Battery critical, please charge.' };
+    }
+    if (activeTelemetry.weight_kg >= 7.0) {
+      return { sentiMood: '14_tired' as const, sentiSpeech: 'Bag weight exceeds 7kg limit.' };
+    }
+    return { sentiMood: '01_happy' as const, sentiSpeech: null };
+  }, [activeTelemetry]);
+
   // Dynamic status bar safe clearance: accommodates Dynamic Island, camera punch-hole, and status bar
   const topInset = Math.max(
     insets.top,
     Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 20
   ) + 8;
-
-  // Bag telemetry state
-  const [telemetry, setTelemetry] = useState<BagTelemetry>({
-    id: 'demo-telem',
-    bag_id: 'bag-01',
-    battery_level: 86,
-    is_charging: false,
-    zipper_closed: true,
-    bottle_inserted: true,
-    weight_kg: 2.4,
-    internal_temp_c: 23.5,
-    humidity_pct: 54,
-    ble_rssi: -58,
-    tamper_detected: false,
-    sos_triggered: false,
-    recorded_at: new Date().toISOString(),
-  });
 
   // Load weather on mount with 45-minute cache defense
   useEffect(() => {
@@ -90,13 +99,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     const updatedWeather = await getSmartWeather(13.0827, 80.2707, true);
     setWeather(updatedWeather);
     setRefreshing(false);
-  };
-
-  const toggleLock = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
-    setIsLocked((prev) => !prev);
   };
 
   return (
@@ -131,7 +133,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           </TouchableOpacity>
 
           <SentiCompanion
-            initialMood="01_happy"
+            initialMood={sentiMood}
+            speechBubbleText={sentiSpeech}
             size={46}
             onPress={() => setIsChatOpen(true)}
             idleTimeoutSeconds={15}
@@ -153,31 +156,127 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
         {/* Multi-Bag Carousel (Primary, Secondary, Tertiary with BLE Controls) */}
         <DeviceCarousel />
 
-        {/* Quick Telemetry Grid */}
+        {/* Real-Time Hardware Security Alerts from Digital Twin */}
+        {activeTelemetry.sos_triggered && (
+          <View style={styles.emergencySosBanner}>
+            <AlertTriangle size={20} color="#FAF6EE" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.emergencySosTitle}>EMERGENCY SOS BROADCAST ACTIVE</Text>
+              <Text style={styles.emergencySosSubtitle}>
+                Hardware SOS triggered on {activeBag.name}. High-priority alert dispatched.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {activeTelemetry.tamper_detected && (
+          <View style={styles.tamperAlertBanner}>
+            <ShieldAlert size={20} color="#92400E" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.tamperAlertTitle}>Security Alert: Movement Detected</Text>
+              <Text style={styles.tamperAlertSubtitle}>
+                Unauthorized displacement recorded by gyroscope on {activeBag.name}.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Zipper Intrusion Breach while Locked */}
+        {activeTelemetry.is_locked && !activeTelemetry.zipper_closed && (
+          <View style={styles.breachAlertBanner}>
+            <ShieldAlert size={20} color="#FAF6EE" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.breachAlertTitle}>SECURITY ALERT: ZIPPER COMPROMISED</Text>
+              <Text style={styles.breachAlertSubtitle}>
+                Pocket unzipped while {activeBag.name} is in Protected lock mode.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Thermal Hazard Alert (>40°C) */}
+        {activeTelemetry.internal_temp_c >= 40.0 && (
+          <View style={styles.thermalAlertBanner}>
+            <Thermometer size={20} color="#9A3412" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.thermalAlertTitle}>
+                Thermal Alert: High Heat ({activeTelemetry.internal_temp_c}°C)
+              </Text>
+              <Text style={styles.thermalAlertSubtitle}>
+                Internal temperature exceeds 40°C safe operating threshold.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Overweight Luggage Anomaly (>7kg) */}
+        {activeTelemetry.weight_kg >= 7.0 && (
+          <View style={styles.weightAlertBanner}>
+            <Scale size={20} color="#92400E" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.weightAlertTitle}>
+                Luggage Allowance Warning: {activeTelemetry.weight_kg} kg
+              </Text>
+              <Text style={styles.weightAlertSubtitle}>
+                Exceeds standard 7.0 kg international airline cabin carry-on allowance.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Critical Low Battery Alert (<15%) */}
+        {activeTelemetry.battery_level <= 15 && !activeTelemetry.is_charging && (
+          <View style={styles.batteryAlertBanner}>
+            <AlertTriangle size={20} color="#991B1B" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.batteryAlertTitle}>
+                Critical Battery: {activeTelemetry.battery_level}% Remaining
+              </Text>
+              <Text style={styles.batteryAlertSubtitle}>
+                Recharge {activeBag.name} via USB-C to ensure uninterrupted tracking.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {activeTelemetry.lumbar_heat_active && (
+          <View style={styles.lumbarHeatBanner}>
+            <Flame size={18} color="#92400E" />
+            <Text style={styles.lumbarHeatBannerText}>
+              40C Lumbar Thermal Pouch Active on {activeBag.name}
+            </Text>
+          </View>
+        )}
+
+        {/* 6-Sensor Live Hardware Telemetry Grid (100% Real Supabase Realtime) */}
         <View style={styles.telemetryCard}>
-          <View style={styles.telemetryGrid}>
+          {/* Row 1: Battery, Zipper, Hydration */}
+          <View style={styles.telemetryRow}>
             {/* Battery */}
             <View style={styles.telemetryTile}>
               <View style={styles.iconCircle}>
-                {telemetry.is_charging ? (
+                {activeTelemetry.is_charging ? (
                   <BatteryCharging size={18} color={Colors.primary} />
                 ) : (
                   <BatteryMedium size={18} color={Colors.primary} />
                 )}
               </View>
-              <Text style={styles.telemetryValue}>{telemetry.battery_level}%</Text>
+              <Text style={styles.telemetryValue}>{activeTelemetry.battery_level}%</Text>
               <Text style={styles.telemetryLabel}>
-                {telemetry.is_charging ? 'Charging' : 'Battery'}
+                {activeTelemetry.is_charging ? 'Charging' : 'Battery'}
               </Text>
             </View>
 
             {/* Zipper Sensor */}
             <View style={styles.telemetryTile}>
               <View style={styles.iconCircle}>
-                <Shield size={18} color={telemetry.zipper_closed ? Colors.primary : Colors.statusWarning} />
+                <Shield
+                  size={18}
+                  color={activeTelemetry.zipper_closed ? Colors.primary : Colors.statusWarning}
+                />
               </View>
               <Text style={styles.telemetryValue}>
-                {telemetry.zipper_closed ? 'Secure' : 'Unzipped'}
+                {activeTelemetry.zipper_closed ? 'Secure' : 'Unzipped'}
               </Text>
               <Text style={styles.telemetryLabel}>Zipper Sensor</Text>
             </View>
@@ -185,12 +284,35 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             {/* Smart Bottle */}
             <View style={styles.telemetryTile}>
               <View style={styles.iconCircle}>
-                <Droplets size={18} color={telemetry.bottle_inserted ? Colors.primary : Colors.textTertiary} />
+                <Droplets
+                  size={18}
+                  color={activeTelemetry.bottle_inserted ? Colors.primary : Colors.textTertiary}
+                />
               </View>
               <Text style={styles.telemetryValue}>
-                {telemetry.bottle_inserted ? 'Inserted' : 'Removed'}
+                {activeTelemetry.bottle_inserted ? 'Docked' : 'Empty'}
               </Text>
               <Text style={styles.telemetryLabel}>Hydration</Text>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.telemetryDivider} />
+
+          {/* Row 2: Load Cell Weight, Internal Temp, Ambient Humidity */}
+          <View style={styles.telemetryRow}>
+            {/* Load Cell Weight */}
+            <View style={styles.telemetryTile}>
+              <View style={styles.iconCircle}>
+                <Scale
+                  size={18}
+                  color={activeTelemetry.weight_kg > 5.0 ? Colors.statusWarning : Colors.primary}
+                />
+              </View>
+              <Text style={styles.telemetryValue}>{activeTelemetry.weight_kg} kg</Text>
+              <Text style={styles.telemetryLabel}>
+                {activeTelemetry.weight_kg > 5.0 ? 'Heavy Load' : 'Load Cell'}
+              </Text>
             </View>
 
             {/* Internal Temp */}
@@ -198,8 +320,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
               <View style={styles.iconCircle}>
                 <Thermometer size={18} color={Colors.primary} />
               </View>
-              <Text style={styles.telemetryValue}>{telemetry.internal_temp_c}°C</Text>
+              <Text style={styles.telemetryValue}>{activeTelemetry.internal_temp_c}°C</Text>
               <Text style={styles.telemetryLabel}>Internal Temp</Text>
+            </View>
+
+            {/* Ambient Humidity */}
+            <View style={styles.telemetryTile}>
+              <View style={styles.iconCircle}>
+                <Wind size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.telemetryValue}>{activeTelemetry.humidity_pct}%</Text>
+              <Text style={styles.telemetryLabel}>Humidity</Text>
             </View>
           </View>
         </View>
@@ -482,12 +613,157 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
   },
-  telemetryGrid: {
+  emergencySosBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#B91C1C',
+    borderRadius: 16,
+    padding: Spacing.md,
+    marginVertical: Spacing.xs,
+    ...Shadows.card,
+  },
+  emergencySosTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FAF6EE',
+    letterSpacing: 0.5,
+  },
+  emergencySosSubtitle: {
+    fontSize: 10,
+    color: '#FEE2E2',
+    marginTop: 2,
+  },
+  tamperAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 16,
+    padding: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    ...Shadows.subtle,
+  },
+  tamperAlertTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  tamperAlertSubtitle: {
+    fontSize: 10,
+    color: '#78350F',
+    marginTop: 2,
+  },
+  breachAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7F1D1D',
+    borderRadius: 16,
+    padding: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: '#991B1B',
+    ...Shadows.subtle,
+  },
+  breachAlertTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FAF6EE',
+  },
+  breachAlertSubtitle: {
+    fontSize: 10,
+    color: '#FECACA',
+    marginTop: 2,
+  },
+  thermalAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderRadius: 16,
+    padding: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    ...Shadows.subtle,
+  },
+  thermalAlertTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#9A3412',
+  },
+  thermalAlertSubtitle: {
+    fontSize: 10,
+    color: '#C2410C',
+    marginTop: 2,
+  },
+  weightAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 16,
+    padding: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    ...Shadows.subtle,
+  },
+  weightAlertTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  weightAlertSubtitle: {
+    fontSize: 10,
+    color: '#B45309',
+    marginTop: 2,
+  },
+  batteryAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    padding: Spacing.md,
+    marginVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    ...Shadows.subtle,
+  },
+  batteryAlertTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  batteryAlertSubtitle: {
+    fontSize: 10,
+    color: '#B91C1C',
+    marginTop: 2,
+  },
+  lumbarHeatBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF3E7',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginVertical: Spacing.xs,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#EEDCC0',
+  },
+  lumbarHeatBannerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  telemetryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: Colors.cardAccentBorder,
-    paddingTop: Spacing.md,
+    paddingVertical: 4,
+  },
+  telemetryDivider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginVertical: 10,
   },
   telemetryTile: {
     alignItems: 'center',
@@ -503,12 +779,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   telemetryValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
   telemetryLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: Colors.textTertiary,
     marginTop: 2,
   },

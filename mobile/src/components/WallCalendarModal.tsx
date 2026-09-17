@@ -468,6 +468,7 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     width: SCREEN_WIDTH * 0.94,
+    maxWidth: 500,
     maxHeight: '92%',
     backgroundColor: Colors.canvasElevated,
     borderRadius: 24,
@@ -581,7 +582,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   weekdayLabel: {
-    width: (SCREEN_WIDTH * 0.94 - 32) / 7,
+    width: '14.28%',
     textAlign: 'center',
     fontSize: 10,
     fontWeight: '700',
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   cell: {
-    width: (SCREEN_WIDTH * 0.94 - 36) / 7,
+    width: '14.28%',
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',

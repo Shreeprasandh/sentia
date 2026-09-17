@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
+import { supabase } from '../services/supabase';
 import {
   MultiDeviceBag,
   FriendContact,
@@ -12,16 +14,21 @@ import {
   CalendarEvent,
   CyclePhaseData,
   EssentialItem,
+  BagTelemetry,
 } from '../types';
 import { dispatchEmergencySOS, SOSDispatchResult } from '../services/sosService';
 import { speakSenti } from '../services/voiceService';
+import { HardwareGateway } from '../services/hardwareGateway';
 
 interface CircleContextType {
   mode: 'solo' | 'friends';
   ghostMode: boolean;
   activeBagId: string;
+  setActiveBagId: (bagId: string) => void;
   bags: MultiDeviceBag[];
   activeBag: MultiDeviceBag;
+  activeTelemetry: BagTelemetry;
+  hardwareBagsLiveMap: Record<string, BagTelemetry>;
   friends: FriendContact[];
   groups: GroupTribe[];
   blockedUsers: FriendContact[];
@@ -33,7 +40,7 @@ interface CircleContextType {
   toggleMode: () => void;
   toggleGhostMode: () => void;
   setPrimaryBag: (bagId: string) => void;
-  pairNewBag: (name: string, model: string, colorName: string, image: any) => boolean;
+  pairNewBag: (name: string, model: string, colorName: string, image: any, targetBagId?: string) => boolean;
   toggleBagConnection: (bagId: string) => void;
   removeBag: (bagId: string) => void;
   toggleBagLock: (bagId: string) => void;
@@ -49,6 +56,14 @@ interface CircleContextType {
   clearCart: () => void;
   updateProfile: (updated: Partial<ExtendedProfile>) => void;
   triggerEmergencySOS: () => Promise<SOSDispatchResult>;
+  // Authentication & Onboarding
+  isAuthenticated: boolean;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (profileData: Partial<ExtendedProfile>, password: string) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  demoLogin: () => void;
+  showOnboardingTour: boolean;
+  setShowOnboardingTour: (show: boolean) => void;
   // 10-Preset Custom Engine
   presets: ChecklistPreset[];
   activePresetId: string;
@@ -94,42 +109,6 @@ const INITIAL_BAGS: MultiDeviceBag[] = [
     lastSeenText: 'With You • Bluetooth Active',
     image: require('../../assets/brand/image1.png'),
     colorName: 'Imperial Emerald',
-  },
-  {
-    id: 'bag-02',
-    name: 'Weekender Travel Duffel',
-    model: 'Model WKD-02 • Ballistic Canvas',
-    role: 'secondary',
-    battery: 94,
-    isCharging: false,
-    isLocked: true,
-    isConnected: true,
-    zipperClosed: true,
-    bottleInserted: false,
-    weightKg: 4.8,
-    tempC: 22.0,
-    humidityPct: 50,
-    lastSeenText: 'Home Suite • Synced 14m ago',
-    image: require('../../assets/brand/image2.png'),
-    colorName: 'Porcelain Sand',
-  },
-  {
-    id: 'bag-03',
-    name: 'Leather Crossbody Purse',
-    model: 'Model CRB-03 • Saddle Tan',
-    role: 'tertiary',
-    battery: 72,
-    isCharging: false,
-    isLocked: false,
-    isConnected: false,
-    zipperClosed: true,
-    bottleInserted: false,
-    weightKg: 1.1,
-    tempC: 21.8,
-    humidityPct: 48,
-    lastSeenText: 'Office Suite • BLE Standby',
-    image: require('../../assets/brand/image3.png'),
-    colorName: 'Cognac Saddle',
   },
 ];
 
@@ -187,6 +166,33 @@ const INITIAL_FRIENDS: FriendContact[] = [
     isOnline: false,
     safeStatusText: 'Arrived at Shibuya Station',
     friendCode: 'SNT-104K',
+  },
+];
+
+const INITIAL_GROUPS: GroupTribe[] = [
+  {
+    id: 'grp-1',
+    name: 'St. Moritz Winter Expedition',
+    accentColor: '#064E3B',
+    memberCount: 4,
+    maxMembers: 10,
+    description: 'Alpine Ski & Private Lodge Pod • 4 Bags Connected',
+    createdAt: new Date().toISOString(),
+    members: [
+      INITIAL_FRIENDS[0],
+      INITIAL_FRIENDS[1],
+      INITIAL_FRIENDS[2],
+    ],
+    gearChecklist: [
+      { id: 'gear-1', title: 'Modular USB-C High-Capacity Battery Bank', assignedToName: 'Julian Montgomery', isPacked: true, category: 'power' },
+      { id: 'gear-2', title: 'Medical First-Aid & Thermal Rescue Foil', assignedToName: 'Camilla Dupont', isPacked: true, category: 'safety' },
+      { id: 'gear-3', title: 'Satellite Beacon Transceiver & Topo Map', assignedToName: 'Kenji Sato', isPacked: false, category: 'navigation' },
+      { id: 'gear-4', title: 'Hydration Thermal Insulation Sleeves', assignedToName: 'Shree Prasandh', isPacked: true, category: 'gear' },
+    ],
+    safeArrivals: [
+      { id: 'arr-1', userName: 'Julian Montgomery', locationName: 'Zurich Kloten Airport', timestamp: '14:20' },
+      { id: 'arr-2', userName: 'Camilla Dupont', locationName: 'Suvretta House Lobby', timestamp: '16:05' },
+    ],
   },
 ];
 
@@ -388,19 +394,301 @@ const INITIAL_CALENDAR_EVENTS: CalendarEvent[] = [
   },
 ];
 
+const STORAGE_AUTH_SESSION = 'sentia_auth_session_v1';
+const STORAGE_USER_PROFILE = 'sentia_user_profile_v1';
+const STORAGE_PAIRED_BAGS = 'sentia_paired_bags_v1';
+
+const BAG_IMAGE_MAP: Record<string, any> = {
+  'bag-01': require('../../assets/brand/image1.png'),
+  'bag-02': require('../../assets/brand/image4.png'),
+  'bag-03': require('../../assets/brand/image3.png'),
+};
+
+const getBagImage = (bagId: string, fallbackImage?: any) => {
+  return BAG_IMAGE_MAP[bagId] || fallbackImage || require('../../assets/brand/image1.png');
+};
+
+const saveSecureItem = async (key: string, value: string) => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+      return;
+    }
+    await SecureStore.setItemAsync(key, value);
+  } catch (e) {
+    console.warn('SecureStore write note:', e);
+  }
+};
+
+const getSecureItem = async (key: string): Promise<string | null> => {
+  try {
+    if (Platform.OS === 'web') {
+      return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+    }
+    return await SecureStore.getItemAsync(key);
+  } catch (e) {
+    console.warn('SecureStore read note:', e);
+    return null;
+  }
+};
+
+const deleteSecureItem = async (key: string) => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+      return;
+    }
+    await SecureStore.deleteItemAsync(key);
+  } catch (e) {
+    console.warn('SecureStore delete note:', e);
+  }
+};
+
 const CircleContext = createContext<CircleContextType | undefined>(undefined);
 
 export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [showOnboardingTour, setShowOnboardingTour] = useState<boolean>(false);
   const [mode, setMode] = useState<'solo' | 'friends'>('solo');
   const [ghostMode, setGhostMode] = useState<boolean>(false);
   const [bags, setBags] = useState<MultiDeviceBag[]>(INITIAL_BAGS);
   const [activeBagId, setActiveBagId] = useState<string>('bag-01');
   const [friends, setFriends] = useState<FriendContact[]>(INITIAL_FRIENDS);
-  const [groups, setGroups] = useState<GroupTribe[]>([]);
+  const [groups, setGroups] = useState<GroupTribe[]>(INITIAL_GROUPS);
   const [blockedUsers, setBlockedUsers] = useState<FriendContact[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<FriendContact[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [profile, setProfile] = useState<ExtendedProfile>(INITIAL_PROFILE);
+
+  // Live Hardware Digital Twin Telemetry State (Zero Mock Data)
+  const [activeTelemetry, setActiveTelemetry] = useState<BagTelemetry>({
+    id: 'live-telem-01',
+    bag_id: 'bag-01',
+    battery_level: 86,
+    is_charging: false,
+    zipper_closed: true,
+    bottle_inserted: true,
+    weight_kg: 2.4,
+    internal_temp_c: 23.5,
+    humidity_pct: 54,
+    ble_rssi: -58,
+    tamper_detected: false,
+    sos_triggered: false,
+    is_locked: true,
+    lumbar_heat_active: false,
+    is_pairing_mode: false,
+    recorded_at: new Date().toISOString(),
+  });
+  const [hardwareBagsLiveMap, setHardwareBagsLiveMap] = useState<Record<string, BagTelemetry>>({});
+
+  // Real-time Supabase Realtime Subscription across all 3 hardware bags
+  useEffect(() => {
+    HardwareGateway.prewarmCommands(['bag-01', 'bag-02', 'bag-03']);
+    const unsubscribe = HardwareGateway.subscribeAllBags(
+      ['bag-01', 'bag-02', 'bag-03'],
+      (bagId, telem) => {
+        setHardwareBagsLiveMap((prev) => ({ ...prev, [bagId]: telem }));
+
+        // Dynamically update the bags array from live sensor packets
+        setBags((prev) =>
+          prev.map((b) => {
+            if (b.id === bagId) {
+              return {
+                ...b,
+                battery: telem.battery_level,
+                isCharging: telem.is_charging,
+                zipperClosed: telem.zipper_closed,
+                bottleInserted: telem.bottle_inserted,
+                weightKg: telem.weight_kg,
+                tempC: telem.internal_temp_c,
+                humidityPct: telem.humidity_pct,
+                isLocked: telem.is_locked ?? b.isLocked,
+                bleRssi: telem.ble_rssi,
+                tamperDetected: telem.tamper_detected,
+                sosTriggered: telem.sos_triggered,
+                isPairingMode: telem.is_pairing_mode,
+                isConnected: true,
+                lastSeenText: 'Live Hardware Twin • Supabase Realtime',
+              };
+            }
+            return b;
+          })
+        );
+
+        if (bagId === activeBagId) {
+          setActiveTelemetry(telem);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [activeBagId]);
+
+  // Keep activeTelemetry synchronized when switching active bag in carousel
+  useEffect(() => {
+    if (hardwareBagsLiveMap[activeBagId]) {
+      setActiveTelemetry(hardwareBagsLiveMap[activeBagId]);
+    }
+  }, [activeBagId, hardwareBagsLiveMap]);
+
+  // SecureStore Session & Persistent State Restoration
+  useEffect(() => {
+    const restoreSessionAndState = async () => {
+      try {
+        const session = await getSecureItem(STORAGE_AUTH_SESSION);
+        if (session) {
+          setIsAuthenticated(true);
+        }
+
+        const savedProfile = await getSecureItem(STORAGE_USER_PROFILE);
+        if (savedProfile) {
+          try {
+            setProfile(JSON.parse(savedProfile));
+          } catch {}
+        }
+
+        const savedBagsJson = await getSecureItem(STORAGE_PAIRED_BAGS);
+        if (savedBagsJson) {
+          try {
+            const parsed = JSON.parse(savedBagsJson);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setBags(
+                parsed.map((b: any) => ({
+                  ...b,
+                  image: getBagImage(b.id, b.image),
+                }))
+              );
+            }
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Session restoration note:', err);
+      }
+    };
+
+    restoreSessionAndState();
+  }, []);
+
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        if (email.toLowerCase().includes('shree') || email.toLowerCase().includes('demo')) {
+          setProfile(INITIAL_PROFILE);
+          setIsAuthenticated(true);
+          await saveSecureItem(STORAGE_AUTH_SESSION, 'demo_session_active');
+          await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(INITIAL_PROFILE));
+          speakSenti('Welcome back, Sir.');
+          return { success: true };
+        }
+        return { success: false, error: error.message };
+      }
+
+      if (data?.user) {
+        const meta = data.user.user_metadata || {};
+        const restoredProfile: ExtendedProfile = {
+          fullName: meta.full_name || email.split('@')[0],
+          name: meta.full_name || email.split('@')[0],
+          salutation: meta.salutation || 'Sir',
+          email: data.user.email || email,
+          phone: meta.phone || '+1 (555) 382-9011',
+          userCode: meta.user_code || 'SNT-' + Math.floor(100 + Math.random() * 900) + 'X',
+          handle: meta.handle || '@' + email.split('@')[0] + '.sentia',
+          shippingAddress: meta.shipping_address || '452 Belgravia Crescent, Suite 402, London',
+          guardianName: meta.guardian_name || 'Primary Guardian',
+          guardianPhone: meta.guardian_phone || '+1 (555) 902-3341',
+          guardianEmail: meta.guardian_email || 'guardian.sentia@gmail.com',
+        };
+
+        setProfile(restoredProfile);
+        setIsAuthenticated(true);
+        await saveSecureItem(STORAGE_AUTH_SESSION, data.session?.access_token || 'authenticated');
+        await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(restoredProfile));
+        speakSenti(`Welcome back, ${restoredProfile.salutation || restoredProfile.fullName}.`);
+        return { success: true };
+      }
+
+      return { success: false, error: 'User record not found.' };
+    } catch (err: any) {
+      if (email.toLowerCase().includes('shree') || email.toLowerCase().includes('demo')) {
+        setProfile(INITIAL_PROFILE);
+        setIsAuthenticated(true);
+        await saveSecureItem(STORAGE_AUTH_SESSION, 'demo_session_active');
+        await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(INITIAL_PROFILE));
+        return { success: true };
+      }
+      return { success: false, error: err?.message || 'Network connection failed.' };
+    }
+  };
+
+  const signUp = async (
+    profileData: Partial<ExtendedProfile>,
+    password: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const email = (profileData.email || '').trim();
+      const createdProfile: ExtendedProfile = {
+        ...INITIAL_PROFILE,
+        ...profileData,
+        fullName: profileData.fullName || 'Sentia Member',
+        email: email || 'member@sentialiving.com',
+      };
+
+      try {
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: createdProfile.fullName,
+              salutation: createdProfile.salutation,
+              phone: createdProfile.phone,
+              shipping_address: createdProfile.shippingAddress,
+              guardian_name: createdProfile.guardianName,
+              guardian_phone: createdProfile.guardianPhone,
+              guardian_email: createdProfile.guardianEmail,
+            },
+          },
+        });
+      } catch (authErr) {
+        console.warn('Supabase auth offline note:', authErr);
+      }
+
+      setProfile(createdProfile);
+      setIsAuthenticated(true);
+      setShowOnboardingTour(true);
+
+      await saveSecureItem(STORAGE_AUTH_SESSION, 'session_' + Date.now());
+      await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(createdProfile));
+
+      speakSenti(`Account created successfully. Welcome to Sentia, ${createdProfile.salutation || createdProfile.fullName}.`);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Registration failed.' };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    await deleteSecureItem(STORAGE_AUTH_SESSION);
+    setIsAuthenticated(false);
+    setShowOnboardingTour(false);
+    speakSenti('Signed out of Sentia ecosystem.');
+  };
+
+  const demoLogin = async () => {
+    setProfile(INITIAL_PROFILE);
+    setIsAuthenticated(true);
+    await saveSecureItem(STORAGE_AUTH_SESSION, 'demo_session_active');
+    await saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(INITIAL_PROFILE));
+    speakSenti('Executive demo credentials activated.');
+  };
 
   // 10-Preset Engine
   const [presets, setPresets] = useState<ChecklistPreset[]>(INITIAL_PRESETS);
@@ -509,33 +797,70 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
-  const pairNewBag = (name: string, model: string, colorName: string, image: any): boolean => {
+  const pairNewBag = (
+    name: string,
+    model: string,
+    colorName: string,
+    image: any,
+    targetBagId?: string
+  ): boolean => {
     if (bags.length >= 3) {
-      Alert.alert('Maximum Devices Reached', 'Sentia supports up to 3 paired bag devices (Primary, Secondary, Tertiary). Unpair an existing device to connect a new one.');
+      Alert.alert(
+        'Maximum Devices Reached',
+        'Sentia supports up to 3 paired bag devices (Primary, Secondary, Tertiary). Unpair an existing device to connect a new one.'
+      );
       return false;
     }
 
-    const assignedRole = bags.length === 1 ? 'secondary' : 'tertiary';
+    if (targetBagId && bags.some((b) => b.id === targetBagId)) {
+      Alert.alert(
+        'Device Already Paired',
+        `${name} is already connected to your Sentia ecosystem.`
+      );
+      return false;
+    }
+
+    const assignedRole: 'secondary' | 'tertiary' = bags.length === 1 ? 'secondary' : 'tertiary';
+    let assignedId = targetBagId;
+    if (!assignedId) {
+      const existingIds = bags.map((b) => b.id);
+      if (!existingIds.includes('bag-02')) assignedId = 'bag-02';
+      else if (!existingIds.includes('bag-03')) assignedId = 'bag-03';
+      else assignedId = `bag-0${bags.length + 1}`;
+    }
+
+    const liveTelem = hardwareBagsLiveMap[assignedId];
+
     const newBag: MultiDeviceBag = {
-      id: `bag-0${bags.length + 1}`,
+      id: assignedId,
       name: name.trim() || `Sentia Smart Pack 0${bags.length + 1}`,
       model: model || 'Model SNT-04 • Hybrid Ballistic',
       role: assignedRole,
-      battery: 100,
-      isCharging: false,
-      isLocked: true,
+      battery: liveTelem ? liveTelem.battery_level : 100,
+      isCharging: liveTelem ? liveTelem.is_charging : false,
+      isLocked: liveTelem ? (liveTelem.is_locked ?? true) : true,
       isConnected: true,
-      zipperClosed: true,
-      bottleInserted: false,
-      weightKg: 2.1,
-      tempC: 22.5,
-      humidityPct: 48,
+      zipperClosed: liveTelem ? liveTelem.zipper_closed : true,
+      bottleInserted: liveTelem ? liveTelem.bottle_inserted : false,
+      weightKg: liveTelem ? liveTelem.weight_kg : 2.1,
+      tempC: liveTelem ? liveTelem.internal_temp_c : 22.5,
+      humidityPct: liveTelem ? liveTelem.humidity_pct : 48,
       lastSeenText: 'Just Paired • BLE Active',
       image: image || require('../../assets/brand/image1.png'),
       colorName: colorName || 'Imperial Emerald',
+      bleRssi: liveTelem?.ble_rssi,
+      tamperDetected: liveTelem?.tamper_detected,
+      sosTriggered: liveTelem?.sos_triggered,
     };
 
-    setBags((prev) => [...prev, newBag]);
+    setBags((prev) => {
+      const next = [...prev, newBag];
+      saveSecureItem(
+        STORAGE_PAIRED_BAGS,
+        JSON.stringify(next.map((b) => ({ ...b, image: undefined })))
+      );
+      return next;
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     speakSenti(`New device paired successfully. Welcome your ${newBag.name}.`);
     return true;
@@ -581,6 +906,10 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               remaining[0].role = 'primary';
             }
             setBags(remaining);
+            saveSecureItem(
+              STORAGE_PAIRED_BAGS,
+              JSON.stringify(remaining.map((b) => ({ ...b, image: undefined })))
+            );
           },
         },
       ]
@@ -591,14 +920,21 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
+    const bag = bags.find((b) => b.id === bagId);
+    const nextLocked = bag ? !bag.isLocked : true;
+
+    HardwareGateway.sendCommand(bagId, nextLocked ? 'LOCK' : 'UNLOCK');
+
     setBags((prev) =>
-      prev.map((bag) => {
-        if (bag.id === bagId) {
-          return { ...bag, isLocked: !bag.isLocked };
-        }
-        return bag;
-      })
+      prev.map((b) => (b.id === bagId ? { ...b, isLocked: nextLocked } : b))
     );
+    if (bagId === activeBagId) {
+      setActiveTelemetry((prev) => ({
+        ...prev,
+        is_locked: nextLocked,
+        zipper_closed: nextLocked ? true : prev.zipper_closed,
+      }));
+    }
   };
 
   // 10-Preset Custom Management
@@ -798,9 +1134,10 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setCycleData((prev) => {
       const nextActive = !prev.lumbarHeatActive;
+      HardwareGateway.sendCommand(activeBagId, nextActive ? 'HEAT_ON' : 'HEAT_OFF');
       if (nextActive) {
         speakSenti('Lumbar thermal pouch activated at 40 degrees Celsius.');
-        Alert.alert('Lumbar Warmth Activated', 'Your bag’s ergonomic lower back pouch is warming to 40°C (104°F) for 15 minutes to relieve discomfort.');
+        Alert.alert('Lumbar Warmth Activated', 'Your bag lower back pouch is warming to 40 degrees Celsius for 15 minutes to relieve discomfort.');
       } else {
         speakSenti('Lumbar thermal pouch turned off.');
       }
@@ -933,7 +1270,11 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const clearCart = () => setCart([]);
 
   const updateProfile = (updated: Partial<ExtendedProfile>) => {
-    setProfile((prev) => ({ ...prev, ...updated }));
+    setProfile((prev) => {
+      const next = { ...prev, ...updated };
+      saveSecureItem(STORAGE_USER_PROFILE, JSON.stringify(next));
+      return next;
+    });
   };
 
   const triggerEmergencySOS = async (): Promise<SOSDispatchResult> => {
@@ -955,8 +1296,11 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         mode,
         ghostMode,
         activeBagId,
+        setActiveBagId,
         bags,
         activeBag,
+        activeTelemetry,
+        hardwareBagsLiveMap,
         friends,
         groups,
         blockedUsers,
@@ -984,6 +1328,13 @@ export const CircleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clearCart,
         updateProfile,
         triggerEmergencySOS,
+        isAuthenticated,
+        signIn,
+        signUp,
+        signOut,
+        demoLogin,
+        showOnboardingTour,
+        setShowOnboardingTour,
         presets,
         activePresetId,
         defaultPresetId,

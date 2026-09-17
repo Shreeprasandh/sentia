@@ -11,7 +11,9 @@ import { CycleTrackerScreen } from './src/screens/CycleTrackerScreen';
 import { CircleScreen } from './src/screens/CircleScreen';
 import { ShopScreen } from './src/screens/ShopScreen';
 import { SettingsAndLegalScreen } from './src/screens/SettingsAndLegalScreen';
+import { AuthScreen } from './src/screens/AuthScreen';
 import { AppStartupAnimation } from './src/components/AppStartupAnimation';
+import { OnboardingTour } from './src/components/OnboardingTour';
 import { CircleProvider, useCircle } from './src/context/CircleContext';
 import { useDoubleBackExit } from './src/hooks/useDoubleBackExit';
 
@@ -37,7 +39,7 @@ type NavTab = 'dashboard' | 'radar' | 'essentials' | 'cycle' | 'circle' | 'shop'
 
 function MainContent() {
   const insets = useSafeAreaInsets();
-  const { mode } = useCircle();
+  const { mode, isAuthenticated, showOnboardingTour, setShowOnboardingTour } = useCircle();
   const [isStartingUp, setIsStartingUp] = useState<boolean>(true);
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
 
@@ -64,116 +66,132 @@ function MainContent() {
         <AppStartupAnimation onAnimationComplete={() => setIsStartingUp(false)} />
       )}
 
-      {/* Active Screen Viewport */}
-      <View style={styles.viewport}>
-        {currentTab === 'dashboard' && <DashboardScreen onNavigate={(route) => setCurrentTab(route as NavTab)} />}
-        {currentTab === 'radar' && <BagRadarScreen onBack={() => setCurrentTab('dashboard')} />}
-        {currentTab === 'essentials' && <EssentialsChecklistScreen onBack={() => setCurrentTab('dashboard')} />}
-        {currentTab === 'cycle' && <CycleTrackerScreen onBack={() => setCurrentTab('dashboard')} />}
-        {currentTab === 'circle' && <CircleScreen onBack={() => setCurrentTab('dashboard')} />}
-        {currentTab === 'shop' && <ShopScreen onBack={() => setCurrentTab('dashboard')} />}
-        {currentTab === 'settings' && <SettingsAndLegalScreen onBack={() => setCurrentTab('dashboard')} />}
-      </View>
+      {/* Unauthenticated State: Display Luxury Auth & Onboarding Gate */}
+      {!isStartingUp && !isAuthenticated && (
+        <AuthScreen />
+      )}
 
-      {/* Artisanal Bottom Tab Bar with Dynamic Safe Area Clearance */}
-      <View style={[styles.tabBarContainer, { paddingBottom: bottomInset }]}>
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => switchTab('dashboard')}
-            activeOpacity={0.7}
-          >
-            <Home
-              size={20}
-              color={currentTab === 'dashboard' ? (mode === 'friends' ? Colors.cognacAmber : Colors.primary) : Colors.textTertiary}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                currentTab === 'dashboard' && (mode === 'friends' ? styles.tabLabelCognac : styles.tabLabelActive),
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
+      {/* Authenticated State: Display Main Application Viewport & Tab Navigation */}
+      {!isStartingUp && isAuthenticated && (
+        <>
+          {/* Active Screen Viewport */}
+          <View style={styles.viewport}>
+            {currentTab === 'dashboard' && <DashboardScreen onNavigate={(route) => setCurrentTab(route as NavTab)} />}
+            {currentTab === 'radar' && <BagRadarScreen onBack={() => setCurrentTab('dashboard')} />}
+            {currentTab === 'essentials' && <EssentialsChecklistScreen onBack={() => setCurrentTab('dashboard')} />}
+            {currentTab === 'cycle' && <CycleTrackerScreen onBack={() => setCurrentTab('dashboard')} />}
+            {currentTab === 'circle' && <CircleScreen onBack={() => setCurrentTab('dashboard')} />}
+            {currentTab === 'shop' && <ShopScreen onBack={() => setCurrentTab('dashboard')} />}
+            {currentTab === 'settings' && <SettingsAndLegalScreen onBack={() => setCurrentTab('dashboard')} />}
+          </View>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => switchTab('radar')}
-            activeOpacity={0.7}
-          >
-            <Compass
-              size={20}
-              color={currentTab === 'radar' ? Colors.primary : Colors.textTertiary}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                currentTab === 'radar' && styles.tabLabelActive,
-              ]}
-            >
-              Radar
-            </Text>
-          </TouchableOpacity>
+          {/* Senti Interactive Onboarding Tour (Launched upon first-time sign up) */}
+          <OnboardingTour
+            visible={showOnboardingTour}
+            onComplete={() => setShowOnboardingTour(false)}
+          />
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => switchTab('essentials')}
-            activeOpacity={0.7}
-          >
-            <CheckSquare
-              size={20}
-              color={currentTab === 'essentials' ? Colors.primary : Colors.textTertiary}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                currentTab === 'essentials' && styles.tabLabelActive,
-              ]}
-            >
-              Checklist
-            </Text>
-          </TouchableOpacity>
+          {/* Artisanal Bottom Tab Bar with Dynamic Safe Area Clearance */}
+          <View style={[styles.tabBarContainer, { paddingBottom: bottomInset }]}>
+            <View style={styles.tabBar}>
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => switchTab('dashboard')}
+                activeOpacity={0.7}
+              >
+                <Home
+                  size={20}
+                  color={currentTab === 'dashboard' ? (mode === 'friends' ? Colors.cognacAmber : Colors.primary) : Colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    currentTab === 'dashboard' && (mode === 'friends' ? styles.tabLabelCognac : styles.tabLabelActive),
+                  ]}
+                >
+                  Home
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => switchTab('circle')}
-            activeOpacity={0.7}
-          >
-            <Users
-              size={20}
-              color={currentTab === 'circle' ? Colors.cognacAmber : Colors.textTertiary}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                currentTab === 'circle' && styles.tabLabelCognac,
-              ]}
-            >
-              Circle
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => switchTab('radar')}
+                activeOpacity={0.7}
+              >
+                <Compass
+                  size={20}
+                  color={currentTab === 'radar' ? Colors.primary : Colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    currentTab === 'radar' && styles.tabLabelActive,
+                  ]}
+                >
+                  Radar
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => switchTab('settings')}
-            activeOpacity={0.7}
-          >
-            <Settings
-              size={20}
-              color={currentTab === 'settings' ? Colors.primary : Colors.textTertiary}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                currentTab === 'settings' && styles.tabLabelActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => switchTab('essentials')}
+                activeOpacity={0.7}
+              >
+                <CheckSquare
+                  size={20}
+                  color={currentTab === 'essentials' ? Colors.primary : Colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    currentTab === 'essentials' && styles.tabLabelActive,
+                  ]}
+                >
+                  Checklist
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => switchTab('circle')}
+                activeOpacity={0.7}
+              >
+                <Users
+                  size={20}
+                  color={currentTab === 'circle' ? Colors.cognacAmber : Colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    currentTab === 'circle' && styles.tabLabelCognac,
+                  ]}
+                >
+                  Circle
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.tabItem}
+                onPress={() => switchTab('settings')}
+                activeOpacity={0.7}
+              >
+                <Settings
+                  size={20}
+                  color={currentTab === 'settings' ? Colors.primary : Colors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    currentTab === 'settings' && styles.tabLabelActive,
+                  ]}
+                >
+                  Settings
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </>
+      )}
     </View>
   );
 }

@@ -82,6 +82,9 @@ export interface BagTelemetry {
   ble_rssi: number;
   tamper_detected: boolean;
   sos_triggered: boolean;
+  is_locked?: boolean;
+  lumbar_heat_active?: boolean;
+  is_pairing_mode?: boolean;
   recorded_at: string;
 }
 
@@ -152,6 +155,10 @@ export interface MultiDeviceBag {
   lastSeenText: string;
   image: any;
   colorName: string;
+  bleRssi?: number;
+  tamperDetected?: boolean;
+  sosTriggered?: boolean;
+  isPairingMode?: boolean;
 }
 
 export interface FriendContact {

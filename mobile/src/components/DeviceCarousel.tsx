@@ -32,29 +32,21 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
 
 export const DeviceCarousel: React.FC = () => {
-  const { bags, activeBagId, setPrimaryBag, toggleBagConnection, removeBag } = useCircle();
+  const { bags, activeBagId, setActiveBagId, setPrimaryBag, toggleBagConnection, removeBag, toggleBagLock } = useCircle();
   const [activeIndex, setActiveIndex] = useState(0);
   const [showPairModal, setShowPairModal] = useState(false);
-  const [localLockedMap, setLocalLockedMap] = useState<Record<string, boolean>>({
-    'bag-01': true,
-    'bag-02': true,
-    'bag-03': false,
-  });
 
   const flatListRef = useRef<FlatList>(null);
-
-  const toggleBagLock = (bagId: string) => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
-    setLocalLockedMap((prev) => ({ ...prev, [bagId]: !prev[bagId] }));
-  };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / CARD_WIDTH);
     if (index !== activeIndex && index >= 0 && index < bags.length) {
       setActiveIndex(index);
+      const targetBag = bags[index];
+      if (targetBag) {
+        setActiveBagId(targetBag.id);
+      }
       try {
         Haptics.selectionAsync();
       } catch {}
@@ -63,10 +55,10 @@ export const DeviceCarousel: React.FC = () => {
 
   const renderBagCard = ({ item }: { item: MultiDeviceBag }) => {
     const isPrimary = item.role === 'primary';
-    const isLocked = localLockedMap[item.id] ?? item.isLocked;
+    const isLocked = item.isLocked;
 
     return (
-      <View style={[styles.card, isPrimary ? styles.primaryCard : styles.secondaryCard]}>
+      <View style={[styles.card, isPrimary ? styles.cardPrimary : styles.cardSecondary]}>
         {/* Card Header: Device Name, Role Badge, and Symmetrical Lock Toggle */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
