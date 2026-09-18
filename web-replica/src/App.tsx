@@ -16,8 +16,8 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 
-const SUPABASE_URL = 'https://mlfkgcriezxzyapjixip.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZmtnY3JpZXhnenlhcGppeGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzY4MDIsImV4cCI6MjEwNTA1MjgwMn0.GnLZJ6ImOewz9BqiosxqAt2moH_UAIsY0uXHJFy7rA4';
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://mlfkgcriezxzyapjixip.supabase.co';
+const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZmtnY3JpZXhnenlhcGppeGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzY4MDIsImV4cCI6MjEwNTA1MjgwMn0.GnLZJ6ImOewz9BqiosxqAt2moH_UAIsY0uXHJFy7rA4';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -386,7 +386,7 @@ export default function App() {
               SENTIA HARDWARE DIGITAL TWIN
             </h1>
             <p style={{ fontSize: '12px', color: '#7D8882', margin: '2px 0 0 0' }}>
-              Multi-Device Realtime Cloud Simulation Console • 3-Bag Ecosystem
+              Multi-Device Realtime Cloud Simulation Console • 4-Bag Ecosystem
             </p>
           </div>
         </div>
@@ -568,48 +568,50 @@ export default function App() {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            {/* Floating 3D/2D Toggle Badge */}
-            <button
-              type="button"
-              onClick={() => setTwinViewMode((prev) => (prev === '2d' ? '3d' : '2d'))}
-              title={twinViewMode === '3d' ? 'Switch to 2D studio photo' : 'Switch to 3D interactive model'}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '14px',
-                zIndex: 10,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                backgroundColor: 'rgba(250, 246, 238, 0.94)',
-                border: '1px solid rgba(6, 78, 59, 0.16)',
-                padding: '5px 10px',
-                borderRadius: '999px',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(6, 78, 59, 0.08)',
-                color: '#064E3B',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.4px',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                transition: 'all 0.18s ease',
-              }}
-            >
-              {twinViewMode === '3d' ? (
-                <>
-                  <ImageIcon size={12} color="#064E3B" />
-                  <span>2D</span>
-                </>
-              ) : (
-                <>
-                  <Box size={12} color="#064E3B" />
-                  <span>3D</span>
-                </>
-              )}
-            </button>
+            {/* Floating 3D/2D Toggle Badge (Exclusive to EXP-01 and CRB-03) */}
+            {(activeDef.id === 'bag-01' || activeDef.id === 'bag-03') && (
+              <button
+                type="button"
+                onClick={() => setTwinViewMode((prev) => (prev === '2d' ? '3d' : '2d'))}
+                title={twinViewMode === '3d' ? 'Switch to 2D studio photo' : 'Switch to 3D interactive model'}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '14px',
+                  zIndex: 10,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: 'rgba(250, 246, 238, 0.94)',
+                  border: '1px solid rgba(6, 78, 59, 0.16)',
+                  padding: '5px 10px',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(6, 78, 59, 0.08)',
+                  color: '#064E3B',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.4px',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  transition: 'all 0.18s ease',
+                }}
+              >
+                {twinViewMode === '3d' ? (
+                  <>
+                    <ImageIcon size={12} color="#064E3B" />
+                    <span>2D</span>
+                  </>
+                ) : (
+                  <>
+                    <Box size={12} color="#064E3B" />
+                    <span>3D</span>
+                  </>
+                )}
+              </button>
+            )}
 
-            {twinViewMode === '3d' ? (
+            {(activeDef.id === 'bag-01' || activeDef.id === 'bag-03') && twinViewMode === '3d' ? (
               <model-viewer
                 key={activeDef.id}
                 src={activeDef.modelGlb}

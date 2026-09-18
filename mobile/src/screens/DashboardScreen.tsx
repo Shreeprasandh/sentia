@@ -38,7 +38,6 @@ import {
   BookOpen,
   X,
   Activity,
-  Smartphone,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
@@ -46,7 +45,6 @@ import { SentiCompanion } from '../components/SentiCompanion';
 import { OnboardingTour } from '../components/OnboardingTour';
 import { DeviceCarousel } from '../components/DeviceCarousel';
 import { WallCalendarModal } from '../components/WallCalendarModal';
-import { WidgetStudioModal } from '../components/WidgetStudioModal';
 import { useCircle } from '../context/CircleContext';
 import { getSmartWeather } from '../services/weather';
 import { getCurrentCoordinates } from '../services/locationService';
@@ -69,7 +67,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showStudyModal, setShowStudyModal] = useState(false);
-  const [isWidgetStudioOpen, setIsWidgetStudioOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
@@ -166,19 +163,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
             {calendarEvents.length > 0 && (
               <View style={styles.calendarDotBadge} />
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.calendarIconBtn}
-            onPress={() => {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
-              setIsWidgetStudioOpen(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Smartphone size={17} color={Colors.primary} />
           </TouchableOpacity>
 
           <SentiCompanion
@@ -603,13 +587,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           </View>
         </View>
       </Modal>
-
-      {/* Android Home Screen Widget Studio & Living Preview */}
-      <WidgetStudioModal
-        visible={isWidgetStudioOpen}
-        onClose={() => setIsWidgetStudioOpen(false)}
-        onLaunchVoice={() => openSentiChat('voice')}
-      />
     </View>
   );
 };

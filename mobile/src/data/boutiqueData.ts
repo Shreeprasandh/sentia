@@ -189,4 +189,47 @@ export const BOUTIQUE_PRODUCTS: BoutiqueProduct[] = [
       },
     ],
   },
+  {
+    id: 'prod-crb-03',
+    name: 'Sentia Leather Crossbody Purse',
+    tagline: 'Saddle Tan Tuscan Napa Leather with Anti-Theft Gyro',
+    priceUsd: 295,
+    priceInr: 22999,
+    category: 'smart_pack',
+    image: require('../../assets/brand/image3.png'),
+    rating: 4.9,
+    reviewsCount: 76,
+    inStock: true,
+    badge: 'LUXURY SILHOUETTE',
+    bag3DModelId: 'bag-03',
+    description:
+      'Artisanal saddle tan napa leather evening purse. Features integrated biometric NFC closure, internal discreet pouch dock, and micro BLE proximity tracking.',
+    specs: [
+      { label: 'Exterior Material', value: 'Full-Grain Tuscan Saddle Tan Leather' },
+      { label: 'Hardware', value: 'Brushed Brass Magnetic Lock' },
+      { label: 'Security', value: 'Anti-Theft Gyro & BLE Proximity Tag' },
+      { label: 'Battery Capacity', value: 'Ultra-Slim 5,000mAh Power Core' },
+    ],
+    howToUseSteps: [
+      'Connect via Bluetooth in the Sentia app: tap Pair New Device and choose Model CRB-03.',
+      'Tap your smartphone against the brass emblem to unlock or calibrate proximity.',
+      'Dock your Cycle Care thermal pouch into the discreet satin-lined organizer slot.',
+    ],
+    faq: [
+      {
+        question: 'How do I care for the saddle tan napa leather?',
+        answer: 'Wipe gently with a dry microfiber cloth. Treat periodically with organic beeswax leather balm.',
+      },
+    ],
+    reviews: [
+      {
+        id: 'r-crb-1',
+        userName: 'Elena V.',
+        rating: 5,
+        date: '5 days ago',
+        comment: 'The leather grain is sublime and the anti-theft gyro gives total peace of mind in crowded bistros.',
+        verifiedPurchase: true,
+      },
+    ],
+  },
 ];

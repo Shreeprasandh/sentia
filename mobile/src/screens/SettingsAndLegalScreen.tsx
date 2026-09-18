@@ -39,13 +39,11 @@ import {
   Mic,
   Info,
   Sparkles,
-  Smartphone,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, Spacing, BorderRadius } from '../theme/tokens';
 import { useCircle } from '../context/CircleContext';
 import { CountryCodePickerModal } from '../components/CountryCodePickerModal';
-import { WidgetStudioModal } from '../components/WidgetStudioModal';
 import { detectCurrentAddress } from '../services/locationService';
 
 interface SettingsAndLegalScreenProps {
@@ -94,7 +92,6 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [careModalVisible, setCareModalVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [widgetStudioVisible, setWidgetStudioVisible] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
 
@@ -573,31 +570,6 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
               />
             </View>
           </TouchableOpacity>
-
-          {/* Android Home Screen Widget Studio */}
-          <TouchableOpacity
-            style={[styles.settingToggleRow, { borderBottomWidth: 0, marginTop: Spacing.xs }]}
-            onPress={() => {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
-              setWidgetStudioVisible(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={styles.settingToggleLeft}>
-              <View style={styles.settingIconBadge}>
-                <Smartphone size={18} color={Colors.primary} />
-              </View>
-              <View style={styles.settingToggleTextCol}>
-                <Text style={styles.settingToggleTitle}>Android Home Screen Widget Studio</Text>
-                <Text style={styles.settingToggleDesc}>
-                  Preview & configure 2x2 companion aura and 4x4 command pod on your phone launcher.
-                </Text>
-              </View>
-            </View>
-            <ExternalLink size={16} color={Colors.textTertiary} />
-          </TouchableOpacity>
         </View>
 
         {/* Security & Data Protection */}
@@ -871,11 +843,6 @@ export const SettingsAndLegalScreen: React.FC<SettingsAndLegalScreenProps> = ({ 
           setSelectedCountryIso(item.iso);
         }}
         onClose={() => setShowCountryPicker(false)}
-      />
-
-      <WidgetStudioModal
-        visible={widgetStudioVisible}
-        onClose={() => setWidgetStudioVisible(false)}
       />
     </View>
   );

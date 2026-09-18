@@ -31,6 +31,7 @@ import { useCircle } from '../context/CircleContext';
 import { MultiDeviceBag } from '../types';
 import { PairDeviceModal } from './PairDeviceModal';
 import { Sentia3DViewer } from './Sentia3DViewer';
+import { is3DSupportedForBag } from '../assets/modelMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
@@ -167,40 +168,42 @@ export const DeviceCarousel: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* Bag Visual & Floating 2D/3D Mode Badge */}
+        {/* Bag Visual & Floating 2D/3D Mode Badge (Available only for EXP-01 and CRB-03) */}
         <View style={styles.visualWrapper}>
-          <TouchableOpacity
-            style={styles.floating3DBadge}
-            onPress={() => {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
-              setViewModeMap((prev) => ({
-                ...prev,
-                [item.id]: (prev[item.id] || '2d') === '2d' ? '3d' : '2d',
-              }));
-            }}
-            activeOpacity={0.8}
-            accessibilityLabel={
-              (viewModeMap[item.id] || '2d') === '3d'
-                ? 'Switch to 2D studio photo'
-                : 'Switch to 3D interactive model'
-            }
-          >
-            {(viewModeMap[item.id] || '2d') === '3d' ? (
-              <>
-                <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
-                <Text style={styles.floatingBadgeText}>2D</Text>
-              </>
-            ) : (
-              <>
-                <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
-                <Text style={styles.floatingBadgeText}>3D</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {is3DSupportedForBag(item.id) && (
+            <TouchableOpacity
+              style={styles.floating3DBadge}
+              onPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } catch {}
+                setViewModeMap((prev) => ({
+                  ...prev,
+                  [item.id]: (prev[item.id] || '2d') === '2d' ? '3d' : '2d',
+                }));
+              }}
+              activeOpacity={0.8}
+              accessibilityLabel={
+                (viewModeMap[item.id] || '2d') === '3d'
+                  ? 'Switch to 2D studio photo'
+                  : 'Switch to 3D interactive model'
+              }
+            >
+              {(viewModeMap[item.id] || '2d') === '3d' ? (
+                <>
+                  <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                  <Text style={styles.floatingBadgeText}>2D</Text>
+                </>
+              ) : (
+                <>
+                  <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
+                  <Text style={styles.floatingBadgeText}>3D</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
-          {viewModeMap[item.id] === '3d' ? (
+          {is3DSupportedForBag(item.id) && viewModeMap[item.id] === '3d' ? (
             <Sentia3DViewer bagId={item.id} height={180} autoRotate={true} showControls={false} />
           ) : (
             <Image source={item.image} style={styles.bagImage} resizeMode="contain" />

@@ -54,3 +54,11 @@ export const BAG_3D_MODELS: Record<string, Bag3DModelMeta> = {
 export const get3DModelForBag = (bagId: string): Bag3DModelMeta => {
   return BAG_3D_MODELS[bagId] || BAG_3D_MODELS['bag-01'];
 };
+
+/**
+ * Flagship 3D digital twins are exclusively available for
+ * Executive Smart Pack (bag-01) and Leather Crossbody Purse (bag-03).
+ */
+export const is3DSupportedForBag = (bagId?: string): boolean => {
+  return bagId === 'bag-01' || bagId === 'bag-03';
+};

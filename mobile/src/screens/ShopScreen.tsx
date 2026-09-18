@@ -59,6 +59,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({ onBack }) => {
 
   const getProduct3DMeta = (product?: BoutiqueProduct | null) => {
     if (!product || !product.bag3DModelId) return null;
+    if (product.bag3DModelId !== 'bag-01' && product.bag3DModelId !== 'bag-03') return null;
     return BAG_3D_MODELS[product.bag3DModelId] || null;
   };
 
