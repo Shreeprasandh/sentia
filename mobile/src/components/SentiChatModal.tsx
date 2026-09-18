@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  Animated,
 } from 'react-native';
 import { X, Send, Sparkles, Mic, MicOff, Volume2, VolumeX, Trash2, Waves } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +28,10 @@ import {
   toggleSentiVoiceMute,
   isVoiceMuted,
 } from '../services/voiceService';
+import {
+  startSpeechRecognition,
+  stopSpeechRecognition,
+} from '../services/speechRecognitionService';
 
 interface SentiChatModalProps {
   visible: boolean;
@@ -67,7 +72,98 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const voiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Animated values for pulsing radar aura and dynamic waveform bars
+  const micPulseAnim = useRef(new Animated.Value(1)).current;
+  const micAuraOpacity = useRef(new Animated.Value(0)).current;
+  const barAnims = useRef(
+    [12, 22, 34, 44, 52, 44, 34, 22, 12].map((initial) => new Animated.Value(initial))
+  ).current;
+
   const flatListRef = useRef<FlatList>(null);
+
+  // Pulsing animation loops for Hands-Free Listening Mode
+  useEffect(() => {
+    if (!isVoiceMode) {
+      micPulseAnim.setValue(1);
+      micAuraOpacity.setValue(0);
+      barAnims.forEach((anim, idx) => {
+        anim.setValue([12, 20, 28, 36, 42, 36, 28, 20, 12][idx]);
+      });
+      return;
+    }
+
+    // 1. Radar aura breathing animation
+    const auraLoop = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(micPulseAnim, {
+            toValue: 1.5,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+          Animated.timing(micPulseAnim, {
+            toValue: 1.0,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(micAuraOpacity, {
+            toValue: 0.1,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+          Animated.timing(micAuraOpacity, {
+            toValue: 0.65,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    auraLoop.start();
+
+    // 2. Waveform organic undulating loops for each bar
+    const barLoops = barAnims.map((anim, i) => {
+      const minHeight = 8 + (i % 3) * 4;
+      const maxHeight = 30 + ((i * 6) % 20);
+      const speed = 380 + ((i * 65) % 240);
+
+      return Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: maxHeight,
+            duration: speed,
+            useNativeDriver: false,
+          }),
+          Animated.timing(anim, {
+            toValue: minHeight,
+            duration: speed,
+            useNativeDriver: false,
+          }),
+        ])
+      );
+    });
+
+    barLoops.forEach((loop) => loop.start());
+
+    return () => {
+      auraLoop.stop();
+      barLoops.forEach((loop) => loop.stop());
+    };
+  }, [isVoiceMode]);
+
+  const updateWaveformVolume = (vol: number) => {
+    const centerIndices = [2, 3, 4, 5, 6];
+    centerIndices.forEach((idx, offset) => {
+      const boosted = Math.max(14, Math.min(54, 14 + vol * 38 - offset * 2));
+      Animated.timing(barAnims[idx], {
+        toValue: boosted,
+        duration: 70,
+        useNativeDriver: false,
+      }).start();
+    });
+  };
 
   useEffect(() => {
     if (visible) {
@@ -98,7 +194,7 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
     setHeaderMood('01_happy');
   };
 
-  const startVoiceSession = () => {
+  const startVoiceSession = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
@@ -107,21 +203,53 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
     setHeaderMood('09_curious');
     setVoiceTranscript('Listening... Speak naturally to Senti');
 
-    if (voiceTimerRef.current) clearTimeout(voiceTimerRef.current);
-    voiceTimerRef.current = setTimeout(() => {
-      const naturalVoiceQueries = [
-        'How is my smart pack battery and hardware status?',
-        'What should I pack for tomorrow based on the weather forecast?',
-        'Can you check my lumbar heat and hydration settings?',
-        'Give me a quick briefing on my social circle and gear.',
-      ];
-      const selectedQuery = naturalVoiceQueries[Math.floor(Math.random() * naturalVoiceQueries.length)];
-      setVoiceTranscript(`"${selectedQuery}"`);
-      setTimeout(() => {
-        handleSendMessage(selectedQuery);
-        setVoiceTranscript('');
-      }, 900);
-    }, 2800);
+    if (voiceTimerRef.current) {
+      clearTimeout(voiceTimerRef.current);
+      voiceTimerRef.current = null;
+    }
+
+    await startSpeechRecognition({
+      onStart: () => {
+        setIsVoiceMode(true);
+        setHeaderMood('09_curious');
+      },
+      onTranscript: (transcript: string, isFinal: boolean) => {
+        if (!transcript) return;
+        setVoiceTranscript(`"${transcript}"`);
+
+        // Final recognition result auto-dispatches query
+        if (isFinal && transcript.trim().length > 1) {
+          const finalQuery = transcript.trim();
+          if (voiceTimerRef.current) clearTimeout(voiceTimerRef.current);
+          voiceTimerRef.current = setTimeout(() => {
+            stopVoiceSession();
+            handleSendMessage(finalQuery);
+          }, 600);
+        }
+      },
+      onVolumeChange: (vol: number) => {
+        updateWaveformVolume(vol);
+      },
+      onError: (errMsg: string) => {
+        setVoiceTranscript(errMsg || 'Listening paused');
+        if (voiceTimerRef.current) clearTimeout(voiceTimerRef.current);
+        voiceTimerRef.current = setTimeout(() => {
+          stopVoiceSession();
+        }, 2200);
+      },
+      onEnd: () => {
+        // Recognition cycle completed
+      },
+    });
+
+    // 10s auto-sleep guard if completely silent
+    if (!voiceTimerRef.current) {
+      voiceTimerRef.current = setTimeout(() => {
+        if (isVoiceMode) {
+          stopVoiceSession();
+        }
+      }, 10000);
+    }
   };
 
   const stopVoiceSession = () => {
@@ -129,6 +257,7 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
       clearTimeout(voiceTimerRef.current);
       voiceTimerRef.current = null;
     }
+    stopSpeechRecognition();
     setIsVoiceMode(false);
     setVoiceTranscript('');
     stopSentiSpeech();
@@ -139,7 +268,17 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
 
   const toggleVoiceMode = () => {
     if (isVoiceMode) {
-      stopVoiceSession();
+      const cleanTranscript = voiceTranscript.replace(/^"|"$/g, '').trim();
+      if (
+        cleanTranscript &&
+        cleanTranscript !== 'Listening... Speak naturally to Senti' &&
+        cleanTranscript !== 'Listening paused'
+      ) {
+        stopVoiceSession();
+        handleSendMessage(cleanTranscript);
+      } else {
+        stopVoiceSession();
+      }
     } else {
       startVoiceSession();
     }
@@ -370,12 +509,15 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
               <Text style={styles.voiceTranscriptText}>{voiceTranscript || 'Listening... Speak naturally'}</Text>
 
               <View style={styles.waveformBarsRow}>
-                {[14, 28, 42, 24, 38, 50, 32, 20, 44, 26, 16].map((h, i) => (
-                  <View
+                {barAnims.map((anim, i) => (
+                  <Animated.View
                     key={i}
                     style={[
                       styles.waveBar,
-                      { height: h, backgroundColor: i % 2 === 0 ? Colors.primary : Colors.cognacAmber },
+                      {
+                        height: anim,
+                        backgroundColor: i % 2 === 0 ? Colors.primary : Colors.cognacAmber,
+                      },
                     ]}
                   />
                 ))}
@@ -385,19 +527,32 @@ export const SentiChatModal: React.FC<SentiChatModalProps> = ({
 
           {/* Input Bar with 1-Tap Voice Toggle */}
           <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-            {/* 1-Tap Duplex Voice Chat Button */}
-            <TouchableOpacity
-              style={[styles.pushToTalkButton, isVoiceMode && styles.pushToTalkButtonActive]}
-              onPress={toggleVoiceMode}
-              activeOpacity={0.8}
-              accessibilityLabel={isVoiceMode ? 'Exit Hands-Free Voice Chat' : 'Start Hands-Free Voice Chat'}
-            >
-              {isVoiceMode ? (
-                <MicOff size={18} color="#FAF6EE" />
-              ) : (
-                <Mic size={18} color={Colors.primary} />
+            {/* 1-Tap Duplex Voice Chat Button with Pulsing Radar Aura */}
+            <View style={styles.micPulseWrapper}>
+              {isVoiceMode && (
+                <Animated.View
+                  style={[
+                    styles.micPulseAura,
+                    {
+                      transform: [{ scale: micPulseAnim }],
+                      opacity: micAuraOpacity,
+                    },
+                  ]}
+                />
               )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pushToTalkButton, isVoiceMode && styles.pushToTalkButtonActive]}
+                onPress={toggleVoiceMode}
+                activeOpacity={0.8}
+                accessibilityLabel={isVoiceMode ? 'Exit Hands-Free Voice Chat' : 'Start Hands-Free Voice Chat'}
+              >
+                {isVoiceMode ? (
+                  <MicOff size={18} color="#FAF6EE" />
+                ) : (
+                  <Mic size={18} color={Colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
 
             <TextInput
               style={styles.textInput}
@@ -618,6 +773,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  micPulseWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm,
+  },
+  micPulseAura: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(6, 78, 59, 0.28)',
+  },
   pushToTalkButton: {
     width: 42,
     height: 42,
@@ -627,7 +795,6 @@ const styles = StyleSheet.create({
     borderColor: '#EEDCC0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.sm,
     ...Shadows.subtle,
   },
   pushToTalkButtonActive: {

@@ -13,7 +13,9 @@
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "Sentia connects to your smart bag via Bluetooth to monitor battery, sensors, and departures.",
         "NSLocationWhenInUseUsageDescription": "Sentia tracks your bag location to prevent leaving it behind.",
-        "NSFaceIDUsageDescription": "Use Face ID to secure your Sentia profile and hardware locks."
+        "NSFaceIDUsageDescription": "Use Face ID to secure your Sentia profile and hardware locks.",
+        "NSMicrophoneUsageDescription": "Sentia uses your microphone for hands-free voice companion chat.",
+        "NSSpeechRecognitionUsageDescription": "Sentia uses speech recognition to transcribe your voice to Senti AI queries."
       }
     },
     "android": {
@@ -29,7 +31,8 @@
         "BLUETOOTH_SCAN",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "VIBRATE"
+        "VIBRATE",
+        "RECORD_AUDIO"
       ]
     },
     "web": {
@@ -38,7 +41,15 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Sentia to use the microphone for hands-free voice companion chat.",
+          "speechRecognitionPermission": "Allow Sentia to convert your speech to text for Senti AI queries.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ]
     ],
     "extra": {
       "eas": {

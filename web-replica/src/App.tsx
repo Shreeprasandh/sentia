@@ -14,12 +14,35 @@ import {
   Volume2,
   Box,
   Image as ImageIcon,
+  Cloud,
+  X,
 } from 'lucide-react';
 
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://mlfkgcriezxzyapjixip.supabase.co';
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZmtnY3JpZXhnenlhcGppeGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzY4MDIsImV4cCI6MjEwNTA1MjgwMn0.GnLZJ6ImOewz9BqiosxqAt2moH_UAIsY0uXHJFy7rA4';
+const DEFAULT_PLACEHOLDER_HOST = 'mlfkgcriezxzyapjixip.supabase.co';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+interface StoredSupabaseConfig {
+  url: string;
+  anonKey: string;
+  isLiveConfigured: boolean;
+}
+
+function getStoredSupabaseConfig(): StoredSupabaseConfig {
+  const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || '').trim();
+  const envKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
+  const localUrl = (typeof window !== 'undefined' ? localStorage.getItem('sentia_supabase_url') || '' : '').trim();
+  const localKey = (typeof window !== 'undefined' ? localStorage.getItem('sentia_supabase_anon_key') || '' : '').trim();
+
+  const activeUrl = localUrl || envUrl;
+  const activeKey = localKey || envKey;
+
+  const isLiveConfigured = Boolean(activeUrl && !activeUrl.includes(DEFAULT_PLACEHOLDER_HOST));
+
+  return {
+    url: isLiveConfigured ? activeUrl : '',
+    anonKey: isLiveConfigured ? activeKey : '',
+    isLiveConfigured,
+  };
+}
 
 interface BagModelDef {
   id: string;
@@ -187,92 +210,194 @@ const playBuzzerChime = () => {
   }
 };
 
+type ConnectionMode = 'autonomous' | 'connecting' | 'live_cloud';
+
 export default function App() {
   const [activeBagId, setActiveBagId] = useState<string>('bag-01');
   const [hardwareMap, setHardwareMap] = useState<Record<string, BagHardwareState>>(INITIAL_HARDWARE_MAP);
-  const [connected, setConnected] = useState(false);
+  const [cloudConfig, setCloudConfig] = useState<StoredSupabaseConfig>(() => getStoredSupabaseConfig());
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>(() =>
+    cloudConfig.isLiveConfigured ? 'connecting' : 'autonomous'
+  );
+  const [showCloudModal, setShowCloudModal] = useState(false);
+  const [inputUrl, setInputUrl] = useState(cloudConfig.url);
+  const [inputKey, setInputKey] = useState(cloudConfig.anonKey);
   const [twinViewMode, setTwinViewMode] = useState<'2d' | '3d'>('2d');
-  const [lastLog, setLastLog] = useState<string>('Simulator initialized. Subscribing to Supabase Realtime channels...');
+  const [lastLog, setLastLog] = useState<string>(
+    cloudConfig.isLiveConfigured
+      ? 'Connecting to Supabase Cloud...'
+      : 'Autonomous Digital Twin active. Operating via local zero-latency simulation bus.'
+  );
   const [receivedCommands, setReceivedCommands] = useState<string[]>([]);
   const [sosHolding, setSosHolding] = useState(false);
   const sosHoldTimer = useRef<any>(null);
+  const supabaseRef = useRef<any>(null);
+  const localBusRef = useRef<BroadcastChannel | null>(null);
   const telemetryChannelsRef = useRef<Record<string, any>>({});
 
   const activeDef = BAG_MODELS.find((b) => b.id === activeBagId) || BAG_MODELS[0];
   const activeBag = hardwareMap[activeBagId] || INITIAL_HARDWARE_MAP['bag-01'];
 
-  // Subscribe to bidirectional commands and pre-warm telemetry channels for all 3 bags
+  // Process inbound hardware command from either Supabase Realtime or local BroadcastChannel
+  const processHardwareCommand = (bagId: string, cmd: any) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] [${bagId.toUpperCase()}] RECV: ${cmd.command} ${JSON.stringify(cmd.params || '')}`;
+
+    setReceivedCommands((prev) => [logEntry, ...prev.slice(0, 10)]);
+
+    const targetDef = BAG_MODELS.find((b) => b.id === bagId);
+    const targetName = targetDef ? targetDef.name : bagId;
+
+    if (cmd.command === 'SOUND_ALARM') {
+      playBuzzerChime();
+      setLastLog(`Buzzer locator chime activated for ${targetName}`);
+    } else if (cmd.command === 'LOCK') {
+      setHardwareMap((prev) => ({
+        ...prev,
+        [bagId]: { ...(prev[bagId] || INITIAL_HARDWARE_MAP[bagId]), isLocked: true, zipperClosed: true },
+      }));
+      setLastLog(`Cryptographic lock engaged on ${targetName}`);
+    } else if (cmd.command === 'UNLOCK') {
+      setHardwareMap((prev) => ({
+        ...prev,
+        [bagId]: { ...(prev[bagId] || INITIAL_HARDWARE_MAP[bagId]), isLocked: false },
+      }));
+      setLastLog(`Lock disengaged on ${targetName}`);
+    } else if (cmd.command === 'HEAT_ON') {
+      setHardwareMap((prev) => ({
+        ...prev,
+        [bagId]: { ...(prev[bagId] || INITIAL_HARDWARE_MAP[bagId]), lumbarHeatActive: true },
+      }));
+      setLastLog(`40C lumbar thermal heat pouch activated on ${targetName}`);
+    } else if (cmd.command === 'HEAT_OFF') {
+      setHardwareMap((prev) => ({
+        ...prev,
+        [bagId]: { ...(prev[bagId] || INITIAL_HARDWARE_MAP[bagId]), lumbarHeatActive: false },
+      }));
+      setLastLog(`Lumbar thermal heat pouch deactivated on ${targetName}`);
+    } else if (cmd.command === 'DISMISS_ALARM') {
+      setHardwareMap((prev) => ({
+        ...prev,
+        [bagId]: {
+          ...(prev[bagId] || INITIAL_HARDWARE_MAP[bagId]),
+          sosTriggered: false,
+          tamperDetected: false,
+        },
+      }));
+      setLastLog(`Locator alarm dismissed on ${targetName}`);
+    } else if (cmd.command === 'LED_COLOR') {
+      const color = cmd.color || cmd.payload?.color || '#10B981';
+      setLastLog(`LED ambient smart ring color updated (${color}) on ${targetName}`);
+    }
+  };
+
+  // Local browser BroadcastChannel for zero-latency cross-tab and cross-window mesh sync
   useEffect(() => {
-    // Pre-subscribe telemetry channels for 0ms broadcast delay
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+
+    const bus = new BroadcastChannel('sentia_hardware_mesh');
+    localBusRef.current = bus;
+
+    bus.onmessage = (event) => {
+      const data = event.data;
+      if (!data) return;
+      if (data.type === 'telemetry_update' && data.bagId && data.telemetry) {
+        setHardwareMap((prev) => ({
+          ...prev,
+          [data.bagId]: { ...(prev[data.bagId] || INITIAL_HARDWARE_MAP[data.bagId]), ...data.telemetry },
+        }));
+      } else if (data.type === 'hardware_command' && data.bagId && data.command) {
+        processHardwareCommand(data.bagId, data.command);
+      }
+    };
+
+    return () => {
+      bus.close();
+      localBusRef.current = null;
+    };
+  }, []);
+
+  // Cloud connectivity effect: subscribes to Supabase Realtime only when live credentials exist
+  useEffect(() => {
+    if (!cloudConfig.isLiveConfigured) {
+      setConnectionMode('autonomous');
+      setLastLog('Autonomous Digital Twin active. Operating via local zero-latency simulation bus.');
+      return;
+    }
+
+    setConnectionMode('connecting');
+    setLastLog(`Connecting to Supabase Cloud at ${cloudConfig.url}...`);
+
+    let isMounted = true;
+    let client: any = null;
+
+    try {
+      client = createClient(cloudConfig.url, cloudConfig.anonKey, {
+        realtime: {
+          timeout: 4000,
+        },
+      });
+      supabaseRef.current = client;
+    } catch (err) {
+      console.warn('Supabase client initialization error:', err);
+      setConnectionMode('autonomous');
+      setLastLog('Cloud initialization failed. Running in autonomous local simulation mode.');
+      return;
+    }
+
+    let subscribedCount = 0;
+    const timeoutId = setTimeout(() => {
+      if (isMounted && subscribedCount === 0) {
+        setConnectionMode('autonomous');
+        setLastLog('Cloud connection timed out or unreachable. Operating in autonomous local mode.');
+      }
+    }, 4500);
+
     BAG_MODELS.forEach((bagDef) => {
-      const telemChannel = supabase.channel(`telemetry:${bagDef.id}`).subscribe();
-      telemetryChannelsRef.current[bagDef.id] = telemChannel;
+      try {
+        const telemChannel = client.channel(`telemetry:${bagDef.id}`).subscribe();
+        telemetryChannelsRef.current[bagDef.id] = telemChannel;
+      } catch {}
     });
 
     const commandChannels = BAG_MODELS.map((bagDef) => {
-      return supabase
+      return client
         .channel(`commands:${bagDef.id}`)
-        .on('broadcast', { event: 'hardware_command' }, (payload) => {
-          const cmd = payload.payload;
-          const timestamp = new Date().toLocaleTimeString();
-          const logEntry = `[${timestamp}] [${bagDef.id.toUpperCase()}] RECV: ${cmd.command} ${JSON.stringify(cmd.params || '')}`;
-
-          setReceivedCommands((prev) => [logEntry, ...prev.slice(0, 10)]);
-
-          if (cmd.command === 'SOUND_ALARM') {
-            playBuzzerChime();
-            setLastLog(`Buzzer locator chime activated for ${bagDef.name}`);
-          } else if (cmd.command === 'LOCK') {
-            setHardwareMap((prev) => ({
-              ...prev,
-              [bagDef.id]: { ...prev[bagDef.id], isLocked: true, zipperClosed: true },
-            }));
-            setLastLog(`Cryptographic lock engaged on ${bagDef.name}`);
-          } else if (cmd.command === 'UNLOCK') {
-            setHardwareMap((prev) => ({
-              ...prev,
-              [bagDef.id]: { ...prev[bagDef.id], isLocked: false },
-            }));
-            setLastLog(`Lock disengaged on ${bagDef.name}`);
-          } else if (cmd.command === 'HEAT_ON') {
-            setHardwareMap((prev) => ({
-              ...prev,
-              [bagDef.id]: { ...prev[bagDef.id], lumbarHeatActive: true },
-            }));
-            setLastLog(`40C lumbar thermal heat pouch activated on ${bagDef.name}`);
-          } else if (cmd.command === 'HEAT_OFF') {
-            setHardwareMap((prev) => ({
-              ...prev,
-              [bagDef.id]: { ...prev[bagDef.id], lumbarHeatActive: false },
-            }));
-            setLastLog(`Lumbar thermal heat pouch deactivated on ${bagDef.name}`);
-          } else if (cmd.command === 'DISMISS_ALARM') {
-            setHardwareMap((prev) => ({
-              ...prev,
-              [bagDef.id]: {
-                ...prev[bagDef.id],
-                sosTriggered: false,
-                tamperDetected: false,
-              },
-            }));
-            setLastLog(`Locator alarm dismissed on ${bagDef.name}`);
-          } else if (cmd.command === 'LED_COLOR') {
-            const color = cmd.color || cmd.payload?.color || '#10B981';
-            setLastLog(`LED ambient smart ring color updated (${color}) on ${bagDef.name}`);
+        .on('broadcast', { event: 'hardware_command' }, (payload: any) => {
+          if (payload?.payload) {
+            processHardwareCommand(bagDef.id, payload.payload);
           }
         })
-        .subscribe((status) => {
+        .subscribe((status: string) => {
+          if (!isMounted) return;
           if (status === 'SUBSCRIBED') {
-            setConnected(true);
+            subscribedCount++;
+            setConnectionMode('live_cloud');
+            setLastLog('Connected to Supabase Cloud. Real-time telemetry synchronized across devices.');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (subscribedCount === 0) {
+              setConnectionMode('autonomous');
+              setLastLog('Cloud channel unreachable. Operating in autonomous local mode.');
+            }
           }
         });
     });
 
     return () => {
-      commandChannels.forEach((ch) => supabase.removeChannel(ch));
-      Object.values(telemetryChannelsRef.current).forEach((ch) => supabase.removeChannel(ch));
+      isMounted = false;
+      clearTimeout(timeoutId);
+      if (client) {
+        commandChannels.forEach((ch: any) => {
+          try { client.removeChannel(ch); } catch {}
+        });
+        Object.values(telemetryChannelsRef.current).forEach((ch: any) => {
+          try { client.removeChannel(ch); } catch {}
+        });
+      }
+      supabaseRef.current = null;
+      telemetryChannelsRef.current = {};
     };
-  }, []);
+  }, [cloudConfig]);
 
   // Broadcast function for a specific bag
   const broadcastBagTelemetry = async (bagId: string, updated?: Partial<BagHardwareState>) => {
@@ -280,75 +405,92 @@ export default function App() {
       const current = prev[bagId] || INITIAL_HARDWARE_MAP[bagId];
       const next = { ...current, ...updated };
 
-      // Dispatch payload to Supabase Realtime channel
-      const channel = telemetryChannelsRef.current[bagId] || supabase.channel(`telemetry:${bagId}`);
-      channel
-        .send({
-          type: 'broadcast',
-          event: 'live_telemetry',
-          payload: {
-            bag_id: next.bagId,
-            battery_level: next.batteryLevel,
-            is_charging: next.isCharging,
-            zipper_closed: next.zipperClosed,
-            bottle_inserted: next.bottleInserted,
-            weight_kg: next.weightKg,
-            internal_temp_c: next.internalTempC,
-            humidity_pct: next.humidityPct,
-            ble_rssi: next.bleRssi,
-            tamper_detected: next.tamperDetected,
-            sos_triggered: next.sosTriggered,
-            is_locked: next.isLocked,
-            lumbar_heat_active: next.lumbarHeatActive,
-            is_pairing_mode: next.isPairingMode,
-            recorded_at: new Date().toISOString(),
-          },
-        })
-        .then(() => {
-          setLastLog(`Broadcasted ${bagId.toUpperCase()} at ${new Date().toLocaleTimeString()} (Battery: ${next.batteryLevel}%, Weight: ${next.weightKg}kg)`);
-        })
-        .catch((err: any) => {
-          setLastLog(`Broadcast error: ${String(err)}`);
+      // 1. Dispatch locally via BroadcastChannel for instant cross-tab sync
+      try {
+        localBusRef.current?.postMessage({
+          type: 'telemetry_update',
+          bagId,
+          telemetry: next,
         });
+      } catch {}
+
+      // 2. Dispatch to live cloud if active and channel joined
+      if (connectionMode === 'live_cloud' && supabaseRef.current) {
+        const channel = telemetryChannelsRef.current[bagId];
+        if (channel && channel.state === 'joined') {
+          channel
+            .send({
+              type: 'broadcast',
+              event: 'live_telemetry',
+              payload: {
+                bag_id: next.bagId,
+                battery_level: next.batteryLevel,
+                is_charging: next.isCharging,
+                zipper_closed: next.zipperClosed,
+                bottle_inserted: next.bottleInserted,
+                weight_kg: next.weightKg,
+                internal_temp_c: next.internalTempC,
+                humidity_pct: next.humidityPct,
+                ble_rssi: next.bleRssi,
+                tamper_detected: next.tamperDetected,
+                sos_triggered: next.sosTriggered,
+                is_locked: next.isLocked,
+                lumbar_heat_active: next.lumbarHeatActive,
+                is_pairing_mode: next.isPairingMode,
+                recorded_at: new Date().toISOString(),
+              },
+            })
+            .then(() => {
+              setLastLog(`Synced to Cloud: ${bagId.toUpperCase()} at ${new Date().toLocaleTimeString()} (${next.batteryLevel}%, ${next.weightKg}kg)`);
+            })
+            .catch(() => {});
+        }
+      } else {
+        setLastLog(`Simulated: ${bagId.toUpperCase()} at ${new Date().toLocaleTimeString()} (Battery: ${next.batteryLevel}%, Weight: ${next.weightKg}kg)`);
+      }
 
       return { ...prev, [bagId]: next };
     });
   };
 
-  // Heartbeat loop: periodically pulses live telemetry for all 3 bags
+  // Periodic background telemetry pulse (only broadcasts to cloud if connected)
   useEffect(() => {
     const timer = setInterval(() => {
-      BAG_MODELS.forEach((bagDef) => {
-        const bagState = hardwareMap[bagDef.id];
-        if (bagState) {
-          const channel = telemetryChannelsRef.current[bagDef.id] || supabase.channel(`telemetry:${bagDef.id}`);
-          channel.send({
-            type: 'broadcast',
-            event: 'live_telemetry',
-            payload: {
-              bag_id: bagState.bagId,
-              battery_level: bagState.batteryLevel,
-              is_charging: bagState.isCharging,
-              zipper_closed: bagState.zipperClosed,
-              bottle_inserted: bagState.bottleInserted,
-              weight_kg: bagState.weightKg,
-              internal_temp_c: bagState.internalTempC,
-              humidity_pct: bagState.humidityPct,
-              ble_rssi: bagState.bleRssi,
-              tamper_detected: bagState.tamperDetected,
-              sos_triggered: bagState.sosTriggered,
-              is_locked: bagState.isLocked,
-              lumbar_heat_active: bagState.lumbarHeatActive,
-              is_pairing_mode: bagState.isPairingMode,
-              recorded_at: new Date().toISOString(),
-            },
-          });
-        }
-      });
+      if (connectionMode === 'live_cloud' && supabaseRef.current) {
+        BAG_MODELS.forEach((bagDef) => {
+          const bagState = hardwareMap[bagDef.id];
+          if (bagState) {
+            const channel = telemetryChannelsRef.current[bagDef.id];
+            if (channel && channel.state === 'joined') {
+              channel.send({
+                type: 'broadcast',
+                event: 'live_telemetry',
+                payload: {
+                  bag_id: bagState.bagId,
+                  battery_level: bagState.batteryLevel,
+                  is_charging: bagState.isCharging,
+                  zipper_closed: bagState.zipperClosed,
+                  bottle_inserted: bagState.bottleInserted,
+                  weight_kg: bagState.weightKg,
+                  internal_temp_c: bagState.internalTempC,
+                  humidity_pct: bagState.humidityPct,
+                  ble_rssi: bagState.bleRssi,
+                  tamper_detected: bagState.tamperDetected,
+                  sos_triggered: bagState.sosTriggered,
+                  is_locked: bagState.isLocked,
+                  lumbar_heat_active: bagState.lumbarHeatActive,
+                  is_pairing_mode: bagState.isPairingMode,
+                  recorded_at: new Date().toISOString(),
+                },
+              }).catch(() => {});
+            }
+          }
+        });
+      }
     }, 4000);
 
     return () => clearInterval(timer);
-  }, [hardwareMap]);
+  }, [hardwareMap, connectionMode]);
 
   // SOS Hold Handler
   const startSosHold = () => {
@@ -392,6 +534,7 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Status Indicator Badge */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -402,16 +545,43 @@ export default function App() {
             borderRadius: '999px',
             fontSize: '12px',
             fontWeight: 600,
-            color: connected ? '#064E3B' : '#D97706',
+            color: connectionMode === 'live_cloud' ? '#064E3B' : connectionMode === 'connecting' ? '#D97706' : '#064E3B',
           }}>
             <span style={{
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: connected ? '#10B981' : '#F59E0B',
+              backgroundColor: connectionMode === 'live_cloud' ? '#10B981' : connectionMode === 'connecting' ? '#F59E0B' : '#059669',
             }} />
-            {connected ? 'Supabase Realtime Live' : 'Connecting to Cloud...'}
+            {connectionMode === 'live_cloud'
+              ? 'Supabase Cloud Live'
+              : connectionMode === 'connecting'
+              ? 'Connecting to Cloud...'
+              : 'Autonomous Twin Active'}
           </div>
+
+          {/* Cloud Settings Button */}
+          <button
+            type="button"
+            onClick={() => setShowCloudModal(true)}
+            title="Configure Supabase Cloud backend credentials"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#FAF6EE',
+              border: '1px solid #EEDCC0',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#064E3B',
+              cursor: 'pointer',
+            }}
+          >
+            <Cloud size={13} color="#064E3B" />
+            <span>{connectionMode === 'live_cloud' ? 'Cloud Configured' : 'Connect Cloud'}</span>
+          </button>
 
           <button
             onClick={() => broadcastBagTelemetry(activeBagId)}
@@ -1065,6 +1235,222 @@ export default function App() {
           </div>
         </section>
       </div>
+
+      {/* Supabase Cloud Connection Modal */}
+      {showCloudModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 31, 26, 0.65)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FAF6EE',
+              borderRadius: '24px',
+              border: '1px solid #EEDCC0',
+              boxShadow: '0 25px 50px -12px rgba(6, 78, 59, 0.25)',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '28px',
+              position: 'relative',
+              boxSizing: 'border-box',
+            }}
+          >
+            {/* Modal Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowCloudModal(false)}
+              aria-label="Close modal"
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '999px',
+                color: '#7D8882',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <Cloud size={24} color="#064E3B" />
+              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#064E3B', margin: 0 }}>
+                Supabase Cloud Backend
+              </h2>
+            </div>
+            <p style={{ fontSize: '13px', color: '#4B5563', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+              Connect your Sentia digital twin to a live Supabase project for real-time mobile app syncing across devices. Standalone simulation operates completely in Autonomous Mode with zero cloud dependencies.
+            </p>
+
+            {/* Active Mode Status Banner */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: connectionMode === 'live_cloud' ? '#ECFDF5' : connectionMode === 'connecting' ? '#FEF3C7' : '#EFF6FF',
+                border: `1px solid ${connectionMode === 'live_cloud' ? '#A7F3D0' : connectionMode === 'connecting' ? '#FDE68A' : '#BFDBFE'}`,
+                padding: '10px 14px',
+                borderRadius: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: connectionMode === 'live_cloud' ? '#10B981' : connectionMode === 'connecting' ? '#F59E0B' : '#3B82F6',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: connectionMode === 'live_cloud' ? '#064E3B' : connectionMode === 'connecting' ? '#92400E' : '#1E40AF',
+                }}
+              >
+                Current Status: {connectionMode === 'live_cloud' ? 'Live Cloud Realtime Connected' : connectionMode === 'connecting' ? 'Connecting to Cloud...' : 'Autonomous Local Digital Twin Active'}
+              </span>
+            </div>
+
+            {/* Supabase URL Input */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#064E3B', marginBottom: '6px' }}>
+                Supabase Project URL
+              </label>
+              <input
+                type="text"
+                placeholder="https://your-project.supabase.co"
+                value={inputUrl}
+                onChange={(e) => setInputUrl(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #EEDCC0',
+                  backgroundColor: '#FFFFFF',
+                  fontSize: '13px',
+                  color: '#0F1F1A',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Supabase Anon Key Input */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#064E3B', marginBottom: '6px' }}>
+                Supabase Anon Public API Key
+              </label>
+              <input
+                type="text"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                value={inputKey}
+                onChange={(e) => setInputKey(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #EEDCC0',
+                  backgroundColor: '#FFFFFF',
+                  fontSize: '13px',
+                  color: '#0F1F1A',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('sentia_supabase_url');
+                    localStorage.removeItem('sentia_supabase_anon_key');
+                  } catch {}
+                  setInputUrl('');
+                  setInputKey('');
+                  setCloudConfig({ url: '', anonKey: '', isLiveConfigured: false });
+                  setShowCloudModal(false);
+                }}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '999px',
+                  border: '1px solid #EEDCC0',
+                  backgroundColor: '#FFFFFF',
+                  color: '#7D8882',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Reset to Autonomous
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const cleanUrl = inputUrl.trim();
+                  const cleanKey = inputKey.trim();
+                  if (cleanUrl) {
+                    try {
+                      localStorage.setItem('sentia_supabase_url', cleanUrl);
+                      localStorage.setItem('sentia_supabase_anon_key', cleanKey);
+                    } catch {}
+                    setCloudConfig({
+                      url: cleanUrl,
+                      anonKey: cleanKey,
+                      isLiveConfigured: true,
+                    });
+                  } else {
+                    try {
+                      localStorage.removeItem('sentia_supabase_url');
+                      localStorage.removeItem('sentia_supabase_anon_key');
+                    } catch {}
+                    setCloudConfig({ url: '', anonKey: '', isLiveConfigured: false });
+                  }
+                  setShowCloudModal(false);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '999px',
+                  border: 'none',
+                  backgroundColor: '#064E3B',
+                  color: '#FAF6EE',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Save & Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
