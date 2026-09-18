@@ -12,13 +12,15 @@ export interface Bag3DModelMeta {
   fieldOfView: string;
 }
 
+export const CDN_BASE_URL = 'https://web-replica-three.vercel.app';
+
 export const BAG_3D_MODELS: Record<string, Bag3DModelMeta> = {
   'bag-01': {
     id: 'bag-01',
     name: 'Executive Smart Pack',
     modelCode: 'Model EXP-01 • Carbon Weave',
     asset: require('../../assets/models/sentia_exp01.glb'),
-    webUrl: '/models/sentia_exp01.glb',
+    webUrl: `${CDN_BASE_URL}/models/sentia_exp01.glb`,
     cameraOrbit: '0deg 75deg 105%',
     fieldOfView: '30deg',
   },
@@ -27,7 +29,7 @@ export const BAG_3D_MODELS: Record<string, Bag3DModelMeta> = {
     name: 'Weekender Travel Duffel',
     modelCode: 'Model WKD-02 • Ballistic Canvas',
     asset: require('../../assets/models/sentia_wkd02.glb'),
-    webUrl: '/models/sentia_wkd02.glb',
+    webUrl: `${CDN_BASE_URL}/models/sentia_wkd02.glb`,
     cameraOrbit: '0deg 75deg 105%',
     fieldOfView: '30deg',
   },
@@ -36,7 +38,7 @@ export const BAG_3D_MODELS: Record<string, Bag3DModelMeta> = {
     name: 'Leather Crossbody Purse',
     modelCode: 'Model CRB-03 • Saddle Tan',
     asset: require('../../assets/models/sentia_crb03.glb'),
-    webUrl: '/models/sentia_crb03.glb',
+    webUrl: `${CDN_BASE_URL}/models/sentia_crb03.glb`,
     cameraOrbit: '0deg 75deg 105%',
     fieldOfView: '30deg',
   },
@@ -45,7 +47,7 @@ export const BAG_3D_MODELS: Record<string, Bag3DModelMeta> = {
     name: 'Smart Commuter Sling',
     modelCode: 'Model SLG-04 • Aerodynamic Carbon',
     asset: require('../../assets/models/sentia_slg04.glb'),
-    webUrl: '/models/sentia_slg04.glb',
+    webUrl: `${CDN_BASE_URL}/models/sentia_slg04.glb`,
     cameraOrbit: '0deg 75deg 105%',
     fieldOfView: '30deg',
   },

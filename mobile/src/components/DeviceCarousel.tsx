@@ -191,13 +191,13 @@ export const DeviceCarousel: React.FC = () => {
             >
               {(viewModeMap[item.id] || '2d') === '3d' ? (
                 <>
-                  <ImageIcon size={11} color={Colors.primary} style={{ marginRight: 3 }} />
-                  <Text style={styles.floatingBadgeText}>2D</Text>
+                  <ImageIcon size={12} color={Colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.floatingBadgeText}>2D Photo</Text>
                 </>
               ) : (
                 <>
-                  <Box size={11} color={Colors.primary} style={{ marginRight: 3 }} />
-                  <Text style={styles.floatingBadgeText}>3D</Text>
+                  <Box size={12} color={Colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.floatingBadgeText}>3D Twin</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -439,26 +439,26 @@ const styles = StyleSheet.create({
   },
   floating3DBadge: {
     position: 'absolute',
-    top: 4,
-    right: 6,
-    zIndex: 10,
+    top: 6,
+    right: 8,
+    zIndex: 25,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(250, 246, 238, 0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(6, 78, 59, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: '#FAF6EE',
+    borderWidth: 1.5,
+    borderColor: '#064E3B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.pill,
     shadowColor: '#064E3B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 4,
   },
   floatingBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: Colors.primary,
     letterSpacing: 0.5,
   },

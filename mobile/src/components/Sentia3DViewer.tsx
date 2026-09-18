@@ -8,11 +8,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Asset } from 'expo-asset';
-import { RotateCw, Maximize2, Sparkles } from 'lucide-react-native';
+import { RotateCw, AlertTriangle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Shadows, BorderRadius, Spacing } from '../theme/tokens';
-import { Bag3DModelMeta, get3DModelForBag } from '../assets/modelMap';
+import { Bag3DModelMeta, get3DModelForBag, CDN_BASE_URL } from '../assets/modelMap';
 
 interface Sentia3DViewerProps {
   bagId?: string;
@@ -30,43 +29,21 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
   showControls = true,
 }) => {
   const meta = propMeta || get3DModelForBag(bagId);
-  const [assetUri, setAssetUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [activeAngle, setActiveAngle] = useState<'front' | 'side' | 'back'>('front');
   const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
-    let isMounted = true;
     setIsLoading(true);
+    setHasError(false);
 
-    (async () => {
-      try {
-        if (Platform.OS === 'web') {
-          if (isMounted) {
-            setAssetUri(meta.webUrl);
-            setIsLoading(false);
-          }
-          return;
-        }
+    // Fallback timer: ensure overlay is dismissed after 5s if event is missed
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 5000);
 
-        const asset = Asset.fromModule(meta.asset);
-        await asset.downloadAsync();
-        if (isMounted) {
-          const resolved = asset.localUri || asset.uri || meta.webUrl;
-          setAssetUri(resolved);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setAssetUri(meta.webUrl);
-          setIsLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => clearTimeout(timer);
   }, [meta.id]);
 
   const handleAngleChange = (angle: 'front' | 'side' | 'back') => {
@@ -81,6 +58,22 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
       true;
     `);
   };
+
+  const handleRetry = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    setIsLoading(true);
+    setHasError(false);
+    webViewRef.current?.reload();
+  };
+
+  const modelSourceUrl = useMemo(() => {
+    if (meta.webUrl && meta.webUrl.startsWith('http')) {
+      return meta.webUrl;
+    }
+    return `${CDN_BASE_URL}${meta.webUrl.startsWith('/') ? '' : '/'}${meta.webUrl}`;
+  }, [meta.webUrl]);
 
   const htmlContent = useMemo(() => `
     <!DOCTYPE html>
@@ -109,18 +102,19 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
           --poster-color: transparent;
           --progress-bar-color: #064E3B;
           --progress-mask: transparent;
+          touch-action: none;
         }
       </style>
     </head>
     <body>
       <model-viewer
         id="sentia-bag-viewer"
-        src="${assetUri || meta.webUrl}"
+        src="${modelSourceUrl}"
         camera-controls
-        touch-action="pan-y"
-        ${autoRotate ? 'auto-rotate auto-rotate-delay="800" rotation-per-second="18deg"' : ''}
-        camera-orbit="0deg 75deg 105%"
-        field-of-view="${meta.fieldOfView}"
+        touch-action="none"
+        ${autoRotate ? 'auto-rotate auto-rotate-delay="600" rotation-per-second="18deg"' : ''}
+        camera-orbit="${meta.cameraOrbit || '0deg 75deg 105%'}"
+        field-of-view="${meta.fieldOfView || '30deg'}"
         shadow-intensity="1.4"
         shadow-softness="0.75"
         exposure="1.08"
@@ -130,8 +124,24 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
       >
       </model-viewer>
       <script>
+        const mv = document.getElementById('sentia-bag-viewer');
+        if (mv) {
+          mv.addEventListener('load', function() {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MODEL_LOADED' }));
+            }
+          });
+          mv.addEventListener('error', function(e) {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ 
+                type: 'MODEL_ERROR', 
+                detail: e && e.detail ? String(e.detail) : 'GLB decode error' 
+              }));
+            }
+          });
+        }
+
         window.setCameraAngle = function(angle) {
-          const mv = document.getElementById('sentia-bag-viewer');
           if (!mv) return;
           if (angle === 'front') mv.cameraOrbit = '0deg 75deg 105%';
           if (angle === 'side') mv.cameraOrbit = '90deg 75deg 105%';
@@ -140,33 +150,68 @@ export const Sentia3DViewer: React.FC<Sentia3DViewerProps> = ({
       </script>
     </body>
     </html>
-  `, [assetUri, meta.id, meta.webUrl, meta.fieldOfView, autoRotate]);
+  `, [modelSourceUrl, meta.cameraOrbit, meta.fieldOfView, autoRotate]);
 
   return (
     <View style={[styles.container, { height }]}>
-      {isLoading && (
+      {isLoading && !hasError && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color={Colors.primary} />
-          <Text style={styles.loadingText}>Initializing 3D Digital Twin...</Text>
+          <Text style={styles.loadingText}>Streaming 3D Digital Twin...</Text>
+        </View>
+      )}
+
+      {hasError && (
+        <View style={styles.errorOverlay}>
+          <AlertTriangle size={20} color={Colors.statusWarning} />
+          <Text style={styles.errorText}>Digital twin stream interrupted</Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={handleRetry}
+            activeOpacity={0.8}
+          >
+            <RotateCw size={12} color={Colors.primary} style={{ marginRight: 4 }} />
+            <Text style={styles.retryBtnText}>Reload Model</Text>
+          </TouchableOpacity>
         </View>
       )}
 
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ html: htmlContent }}
+        source={{
+          html: htmlContent,
+          baseUrl: CDN_BASE_URL,
+        }}
         style={styles.webview}
         scrollEnabled={false}
         allowsInlineMediaPlayback
         javaScriptEnabled
         domStorageEnabled
-        allowFileAccess
-        allowFileAccessFromFileURLs
-        allowUniversalAccessFromFileURLs
-        onLoadEnd={() => setIsLoading(false)}
+        androidLayerType="hardware"
+        mixedContentMode="always"
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'MODEL_LOADED') {
+              setIsLoading(false);
+              setHasError(false);
+            } else if (data.type === 'MODEL_ERROR') {
+              setIsLoading(false);
+              setHasError(true);
+            }
+          } catch {}
+        }}
+        onLoadEnd={() => {
+          // WebView container loaded
+        }}
+        onError={() => {
+          setIsLoading(false);
+          setHasError(true);
+        }}
       />
 
-      {showControls && (
+      {showControls && !hasError && (
         <View style={styles.controlsBar}>
           <View style={styles.angleButtonGroup}>
             <TouchableOpacity
@@ -254,6 +299,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textSecondary,
     letterSpacing: 0.5,
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(250, 246, 238, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 15,
+    gap: 6,
+    paddingHorizontal: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF6EE',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.pill,
+    marginTop: 4,
+  },
+  retryBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   controlsBar: {
     position: 'absolute',

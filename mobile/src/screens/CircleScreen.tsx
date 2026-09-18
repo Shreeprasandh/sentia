@@ -417,6 +417,10 @@ export const CircleScreen: React.FC<CircleScreenProps> = ({ onBack }) => {
         visible={!!selectedTribe}
         tribe={selectedTribe}
         onClose={() => setSelectedTribe(null)}
+        onOpenAddFriend={() => {
+          setSelectedTribe(null);
+          setShowAddFriendModal(true);
+        }}
       />
 
       {/* Modal: Create Tribe (Strictly 2–10 Members) */}

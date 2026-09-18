@@ -35,6 +35,7 @@ interface TribeHubModalProps {
   visible: boolean;
   tribe: GroupTribe | null;
   onClose: () => void;
+  onOpenAddFriend?: () => void;
 }
 
 const CATEGORIES = ['Electronics', 'Hydration', 'First Aid', 'Apparel', 'Documents', 'Tools'];
@@ -43,6 +44,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
   visible,
   tribe,
   onClose,
+  onOpenAddFriend,
 }) => {
   const {
     toggleGroupGearPacked,
@@ -314,7 +316,7 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
                   <Users size={16} color={Colors.cognacAmber} />
                   <Text style={styles.sectionTitle}>Pod Roster ({activeTribe.members.length + 1} of 10)</Text>
                 </View>
-                {maxCanAdd > 0 && availableFriends.length > 0 && (
+                {maxCanAdd > 0 && (
                   <TouchableOpacity
                     style={styles.addMemberBtn}
                     onPress={() => {
@@ -464,8 +466,21 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
                   <View style={styles.emptyFriendsContainer}>
                     <Text style={styles.emptyFriendsTitle}>No Available Companions</Text>
                     <Text style={styles.emptyFriendsSub}>
-                      All companions in your Social Circle have already joined this expedition pod or reached the 10-companion limit.
+                      All companions in your Social Circle have already joined this expedition pod, or you have not yet connected new companions to your Circle.
                     </Text>
+                    {onOpenAddFriend && (
+                      <TouchableOpacity
+                        style={styles.connectNewFriendBtn}
+                        onPress={() => {
+                          setShowAddMemberModal(false);
+                          onOpenAddFriend();
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <UserPlus size={15} color="#FAF6EE" style={{ marginRight: 6 }} />
+                        <Text style={styles.connectNewFriendBtnText}>Pair New Companion (QR / Code)</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
                   <>
@@ -512,6 +527,20 @@ export const TribeHubModal: React.FC<TribeHubModalProps> = ({
                           : 'Select Companions to Add'}
                       </Text>
                     </TouchableOpacity>
+
+                    {onOpenAddFriend && (
+                      <TouchableOpacity
+                        style={styles.inviteNewLinkBtn}
+                        onPress={() => {
+                          setShowAddMemberModal(false);
+                          onOpenAddFriend();
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <UserPlus size={13} color={Colors.cognacAmber} style={{ marginRight: 5 }} />
+                        <Text style={styles.inviteNewLinkText}>Pair a new companion via QR / Invite Code</Text>
+                      </TouchableOpacity>
+                    )}
                   </>
                 )}
               </View>
@@ -1167,5 +1196,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FAF6EE',
+  },
+  connectNewFriendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cognacAmber,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.pill,
+    marginTop: Spacing.md,
+  },
+  connectNewFriendBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FAF6EE',
+  },
+  inviteNewLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  inviteNewLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.cognacAmber,
   },
 });
